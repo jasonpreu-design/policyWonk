@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import DomainMap from "@/components/DomainMap";
+import type { DomainData } from "@/components/DomainMap";
 
 interface DomainResult {
   topic_id: number;
@@ -9,22 +11,6 @@ interface DomainResult {
   domain: string;
   tier_reached: string;
 }
-
-const TIER_COLORS: Record<string, string> = {
-  mastery: "bg-green-100 border-green-300 text-green-800",
-  fluency: "bg-blue-100 border-blue-300 text-blue-800",
-  familiarity: "bg-amber-100 border-amber-300 text-amber-800",
-  awareness: "bg-orange-100 border-orange-300 text-orange-800",
-  none: "bg-gray-100 border-gray-300 text-gray-600",
-};
-
-const TIER_LABELS: Record<string, string> = {
-  mastery: "Mastery",
-  fluency: "Fluency",
-  familiarity: "Familiarity",
-  awareness: "Awareness",
-  none: "Fresh Start",
-};
 
 interface OnboardingResultsProps {
   onComplete: () => void;
@@ -96,18 +82,21 @@ export default function OnboardingResults({
             </p>
 
             {/* Domain grid */}
-            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {results.map((r) => (
-                <div
-                  key={r.topic_id}
-                  className={`rounded-lg border-2 p-4 ${TIER_COLORS[r.tier_reached] || TIER_COLORS.none}`}
-                >
-                  <p className="text-sm font-semibold">{r.name}</p>
-                  <p className="mt-1 text-xs opacity-80">
-                    {TIER_LABELS[r.tier_reached] || "Unknown"}
-                  </p>
-                </div>
-              ))}
+            <div className="mt-8">
+              <DomainMap
+                domains={results.map(
+                  (r): DomainData => ({
+                    id: r.topic_id,
+                    name: r.name,
+                    domain: r.domain,
+                    tier: (["none", "awareness", "familiarity", "fluency", "mastery"].includes(
+                      r.tier_reached
+                    )
+                      ? r.tier_reached
+                      : "none") as DomainData["tier"],
+                  })
+                )}
+              />
             </div>
 
             <p className="mt-8 text-sm text-[#1a2744]/60">
