@@ -1,5 +1,6 @@
 import { getDb, initDb } from "./db";
 import { seedTopics } from "./seed-topics";
+import { initSearchIndex } from "./search";
 import type { Database } from "bun:sqlite";
 
 let initialized = false;
@@ -13,6 +14,7 @@ export function ensureDb(): Database {
   if (!initialized) {
     initDb();
     seedTopics(db);
+    initSearchIndex(db);
     initialized = true;
   }
   return db;
