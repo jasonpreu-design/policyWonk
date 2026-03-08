@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "engine": "bun run engine/runner.ts"
+    "engine": "bun run engine/runner.ts",
+    "setup": "bash setup.sh"
   },
   "dependencies": {
     "next": "^15.3.3",
