@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { ConfidenceTag } from "@/components/ConfidenceTag";
+import BookmarkButton from "@/components/BookmarkButton";
 import type { ConfidenceLevel, Citation } from "@/lib/confidence";
 
 export interface ExploreResultData {
@@ -256,14 +257,11 @@ export default function ExploreResult({ result, onRelatedClick }: ExploreResultP
                 ? "Saving..."
                 : "Save to Curriculum"}
           </button>
-          <button
-            disabled
-            className="rounded-lg border border-[#1a2744]/15 px-3 py-1.5 text-xs font-medium text-[#1a2744]/70
-                       opacity-50 cursor-not-allowed"
-            title="Bookmarks coming soon"
-          >
-            Bookmark
-          </button>
+          <BookmarkButton
+            contentType="explore"
+            referenceId={result.id}
+            title={result.question}
+          />
         </div>
       </div>
 
