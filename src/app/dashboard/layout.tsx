@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import Pulse from "./components/Pulse";
 
 const TABS = [
   { label: "Study", href: "/study" },
@@ -22,10 +23,8 @@ export default function DashboardLayout({
     <div className="flex min-h-screen flex-col bg-[#faf8f5]">
       {/* Zone 1: The Pulse */}
       <div className="w-full bg-[#1a2744] px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-white">PolicyWonk</h1>
-          {/* Pulse placeholder — Task 23 */}
-          <div className="text-sm text-white/50">The Pulse</div>
           {/* Mobile sidebar toggle */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -56,6 +55,7 @@ export default function DashboardLayout({
             </svg>
           </button>
         </div>
+        <Pulse />
       </div>
 
       <div className="flex flex-1">
