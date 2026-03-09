@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { DrillDepth, HistoricalEra } from "@/lib/historical-context";
-import { DEPTH_PERIODS } from "@/lib/historical-context";
+import type { DrillDepth, HistoricalEra } from "@/lib/historical-context-types";
+import { DEPTH_PERIODS } from "@/lib/historical-context-types";
 
 export interface DrillDeeperLinkProps {
   topicId: number;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, Fragment } from "react";
-import type { DeepDiveSection } from "@/lib/content-generator";
-import type { DrillDepth, HistoricalEra } from "@/lib/historical-context";
+import type { DeepDiveSection } from "@/lib/content-generator-types";
+import type { DrillDepth, HistoricalEra } from "@/lib/historical-context-types";
 import { CONFIDENCE_META } from "@/lib/confidence";
 import SectionExpander from "./SectionExpander";
 import DrillDeeperLink from "./DrillDeeperLink";

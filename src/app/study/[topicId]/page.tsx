@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import type { DeepDive as DeepDiveType } from "@/lib/content-generator";
+import type { DeepDive as DeepDiveType } from "@/lib/content-generator-types";
 import { CONFIDENCE_META } from "@/lib/confidence";
 import type { ConfidenceLevel } from "@/lib/confidence";
 import DeepDive from "../components/DeepDive";

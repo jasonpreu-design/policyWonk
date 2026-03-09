@@ -1,22 +1,9 @@
 import { askClaude, extractJson } from "./claude";
 import { getKs3SystemPrompt } from "./ks3-context";
-import type { ConfidenceLevel, Citation } from "./confidence";
+import type { ConfidenceLevel } from "./confidence";
 import { CONFIDENCE_ORDER } from "./confidence";
-
-export interface DeepDiveSection {
-  key: string;
-  title: string;
-  content: string; // markdown
-  confidence: ConfidenceLevel;
-  sources: Citation[];
-}
-
-export interface DeepDive {
-  topicName: string;
-  domain: string;
-  sections: DeepDiveSection[];
-  generatedAt: string;
-}
+export type { DeepDiveSection, DeepDive } from "./content-generator-types";
+import type { DeepDiveSection, DeepDive } from "./content-generator-types";
 
 const EXPECTED_SECTION_KEYS = [
   "what_it_is",

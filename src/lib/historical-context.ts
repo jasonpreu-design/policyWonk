@@ -1,26 +1,11 @@
 import { askClaude, extractJson } from "./claude";
 import { getKs3SystemPrompt } from "./ks3-context";
-import type { ConfidenceLevel, Citation } from "./confidence";
+import type { ConfidenceLevel } from "./confidence";
 import { CONFIDENCE_ORDER } from "./confidence";
-
-export interface HistoricalEra {
-  period: string; // e.g., "2010-2024", "1990-2010", "1965-1990"
-  title: string; // e.g., "The ACA Era", "The Reform Attempts"
-  content: string; // markdown
-  keyEvents: { year: number; event: string }[];
-  confidence: ConfidenceLevel;
-  sources: Citation[];
-}
-
-export type DrillDepth = "recent" | "modern" | "foundational" | "origins";
-
-// Map depth to approximate time period
-export const DEPTH_PERIODS: Record<DrillDepth, { label: string; hint: string }> = {
-  recent: { label: "Recent History", hint: "Last 10-15 years" },
-  modern: { label: "Modern Era", hint: "1990s-2010s" },
-  foundational: { label: "Foundational Period", hint: "1960s-1990s" },
-  origins: { label: "Origins", hint: "Pre-1960s roots" },
-};
+export type { HistoricalEra, DrillDepth } from "./historical-context-types";
+export { DEPTH_PERIODS } from "./historical-context-types";
+import type { DrillDepth } from "./historical-context-types";
+import { DEPTH_PERIODS } from "./historical-context-types";
 
 function isValidConfidence(value: string): value is ConfidenceLevel {
   return CONFIDENCE_ORDER.includes(value as ConfidenceLevel);
