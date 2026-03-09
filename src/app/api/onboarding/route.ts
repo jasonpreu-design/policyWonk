@@ -13,6 +13,7 @@ import {
   evaluateFreeForm,
 } from "@/lib/answer-evaluator";
 import type { OnboardingQuestion } from "@/lib/onboarding-questions";
+import { generateInitialContent } from "@/lib/post-onboarding";
 
 // In-memory store for the current question (per-process).
 // In production you'd use a session store, but for a single-user local app this is fine.
@@ -123,6 +124,12 @@ export async function POST(request: NextRequest) {
     completeOnboarding(db);
     const state = getOnboardingState(db);
     const progress = buildProgress(db, state);
+
+    // Kick off content generation in the background (don't await)
+    generateInitialContent(db).catch((err) => {
+      console.error("Post-onboarding content generation failed:", err);
+    });
+
     return NextResponse.json({ state, progress });
   }
 

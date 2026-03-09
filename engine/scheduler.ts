@@ -87,6 +87,30 @@ export function startScheduler(): void {
       intervalMs: job.intervalMs,
     });
 
+    // Run immediately on startup (unless already ran today for daily jobs)
+    (async () => {
+      if (job.intervalMs >= DAILY_MS && hasRunToday(job.name)) {
+        log("debug", `Skipping initial run of ${job.name}: already ran today`);
+        return;
+      }
+      job.running = true;
+      log("info", `Job initial run: ${job.name}`);
+      const start = Date.now();
+      try {
+        await job.run();
+        const durationMs = Date.now() - start;
+        job.lastRun = new Date();
+        recordRun(job.name);
+        log("info", `Job initial run completed: ${job.name}`, { durationMs });
+      } catch (err) {
+        log("error", `Job initial run failed: ${job.name}`, {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } finally {
+        job.running = false;
+      }
+    })();
+
     const interval = setInterval(async () => {
       if (job.running) {
         log("warn", `Skipping ${job.name}: still running from previous invocation`);
