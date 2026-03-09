@@ -242,6 +242,34 @@ export function completeOnboarding(db: Database.Database): void {
          VALUES (?, ?, 'pending', 'onboarding', ?, datetime('now'), datetime('now'))`).run(result.topic_id,
         priority,
         `Onboarding assessment: ${result.tier_reached}`);
+
+      // Propagate domain tier to all subtopics
+      const subtopics = db
+        .prepare("SELECT id FROM topics WHERE parent_id = ?")
+        .all(result.topic_id) as { id: number }[];
+
+      for (const sub of subtopics) {
+        const subExisting = db
+          .prepare("SELECT id FROM competencies WHERE topic_id = ?")
+          .get(sub.id) as { id: number } | null;
+
+        if (subExisting) {
+          db.prepare(`UPDATE competencies SET tier = ?, score = ?, last_assessed = datetime('now'), updated_at = datetime('now')
+             WHERE topic_id = ?`).run(result.tier_reached,
+            tierToScore(result.tier_reached),
+            sub.id);
+        } else {
+          db.prepare(`INSERT INTO competencies (topic_id, tier, score, last_assessed, updated_at)
+             VALUES (?, ?, ?, datetime('now'), datetime('now'))`).run(sub.id,
+            result.tier_reached,
+            tierToScore(result.tier_reached));
+        }
+
+        db.prepare(`INSERT OR IGNORE INTO curriculum (topic_id, priority, status, suggested_by, notes, created_at, updated_at)
+           VALUES (?, ?, 'pending', 'onboarding', ?, datetime('now'), datetime('now'))`).run(sub.id,
+          priority,
+          `Inherited from domain: ${result.tier_reached}`);
+      }
     }
 
     // Set state to complete
