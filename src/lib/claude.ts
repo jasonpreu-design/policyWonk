@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { spawn } from "child_process";
 import { existsSync } from "fs";
 
 export interface ClaudeResponse {
@@ -35,11 +35,11 @@ export async function askClaude(
     ];
     const claudeBin = claudePaths.find(p => existsSync(p)) || "claude";
 
-    const proc = execFile(claudeBin, args, {
+    const proc = spawn(claudeBin, args, {
       timeout: timeoutMs,
       env,
-      maxBuffer: 10 * 1024 * 1024,
     });
+    proc.stdin.end();
 
     let stdout = "";
     let stderr = "";
