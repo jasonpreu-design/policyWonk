@@ -24,7 +24,7 @@ export async function askClaude(
   return new Promise((resolve, reject) => {
     const proc = spawn("claude", args, {
       timeout: timeoutMs,
-      env: { ...process.env },
+      env: { ...process.env, CLAUDECODE: undefined },
     });
 
     let stdout = "";
