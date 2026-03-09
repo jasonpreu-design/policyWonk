@@ -65,7 +65,7 @@ export async function evaluateFreeForm(
   const response = await askClaude(prompt, {
     systemPrompt:
       "You are a policy evaluation assistant. Respond with JSON only, no markdown wrapping.",
-    timeoutMs: 60_000,
+    timeoutMs: 300_000,
   });
 
   if (response.error) {
@@ -138,7 +138,7 @@ export async function evaluateQuizFreeForm(
   const response = await askClaude(prompt, {
     systemPrompt:
       "You are a policy evaluation assistant. Respond with JSON only, no markdown wrapping.",
-    timeoutMs: 60_000,
+    timeoutMs: 300_000,
   });
 
   if (response.error) {

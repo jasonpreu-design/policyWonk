@@ -147,7 +147,7 @@ export async function generateOnboardingQuestion(
 
   const response = await askClaudeJson<ClaudeQuestionResponse>(prompt, {
     systemPrompt,
-    timeoutMs: 60_000,
+    timeoutMs: 300_000,
   });
 
   if (response.error || !response.data) {
