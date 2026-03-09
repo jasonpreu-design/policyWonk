@@ -15,7 +15,7 @@ interface ScheduledJob {
 }
 
 const jobs: ScheduledJob[] = [];
-const intervals: Timer[] = [];
+const intervals: ReturnType<typeof setInterval>[] = [];
 
 export function registerJob(
   name: string,

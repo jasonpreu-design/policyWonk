@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "engine": "bun run engine/runner.ts",
+    "engine": "tsx engine/runner.ts",
     "setup": "bash setup.sh"
   },
   "dependencies": {
@@ -25,6 +25,7 @@
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "tailwindcss": "^4.1.7",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.3"
   }
 }
