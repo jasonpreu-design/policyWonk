@@ -22,9 +22,13 @@ export async function askClaude(
   args.push(prompt);
 
   return new Promise((resolve, reject) => {
+    const env = { ...process.env };
+    delete env.CLAUDECODE;
+
     const proc = spawn("claude", args, {
       timeout: timeoutMs,
-      env: { ...process.env, CLAUDECODE: undefined },
+      env,
+      shell: true,
     });
 
     let stdout = "";
