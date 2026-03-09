@@ -5,11 +5,13 @@ export const KS3_DISTRICT = {
   geography: {
     counties: [
       { name: "Johnson County", description: "Most populous county in Kansas, affluent suburban, county seat Olathe" },
-      { name: "Wyandotte County", description: "Unified with Kansas City, KS (Wyandotte County/KCK), most diverse county in KS" },
-      { name: "Douglas County", description: "Partial — includes Lawrence, home of University of Kansas" },
-      { name: "Miami County", description: "Partial — rural/suburban southern portion of district" },
+      { name: "Wyandotte County", description: "Partial — southern portion (split at I-70), unified government with Kansas City, KS, most diverse county in KS" },
+      { name: "Miami County", description: "Fully included — rural/suburban, county seat Paola" },
+      { name: "Franklin County", description: "Fully included — added in 2022 redistricting, county seat Ottawa" },
+      { name: "Anderson County", description: "Fully included — added in 2022 redistricting, rural, county seat Garnett" },
     ],
-    majorCities: ["Overland Park", "Olathe", "Kansas City (KS)", "Shawnee", "Lenexa", "Lawrence (partial)", "Leawood", "Prairie Village"],
+    redistrictingNote: "2022 redistricting removed Douglas County (Lawrence) from KS-3 to KS-1 and added Franklin and Anderson counties. Wyandotte County was split at I-70 with northern portion moved to KS-2. Republican effort to further redraw KS-3 in 2025-2026 legislative session lacks votes to override governor's veto.",
+    majorCities: ["Overland Park", "Olathe", "Kansas City (KS, partial)", "Shawnee", "Lenexa", "Leawood", "Prairie Village", "Ottawa", "Paola"],
   },
 
   demographics: {
@@ -17,7 +19,7 @@ export const KS3_DISTRICT = {
     medianHouseholdIncome: "$78,000 (Johnson County significantly higher at ~$96,000)",
     raceEthnicity: "Approximately 72% White, 10% Hispanic/Latino, 8% Black, 5% Asian, growing diversity especially in Wyandotte County and southern Johnson County",
     educationAttainment: "45%+ with bachelor's degree or higher (one of the most educated districts in Kansas)",
-    veteranPopulation: "Significant veteran community tied to Fort Leavenworth",
+    veteranPopulation: "Significant veteran community in Johnson County suburbs (Fort Leavenworth is in adjacent KS-2)",
   },
 
   economy: {
@@ -41,17 +43,12 @@ export const KS3_DISTRICT = {
       "Logistics and distribution",
       "Agriculture (southern/western portions)",
     ],
-    economicProfile: "Mix of affluent suburban (Johnson County), working-class urban (Wyandotte/KCK), and rural. Strong tech corridor along I-435/I-35. Growing biotech sector near KU Med.",
+    economicProfile: "Mix of affluent suburban (Johnson County), working-class urban (southern Wyandotte/KCK), and rural (Miami, Franklin, Anderson counties). Strong tech corridor along I-435/I-35. Growing biotech sector near KU Med. The 2022 redistricting added more rural agricultural territory.",
   },
 
   military: {
-    installations: [
-      {
-        name: "Fort Leavenworth",
-        description: "Home to U.S. Army Command and General Staff College (CGSC), Combined Arms Center, and the United States Disciplinary Barracks (military prison). One of the oldest active Army posts west of the Mississippi.",
-        economicImpact: "Major employer in Leavenworth area, significant veteran transition community",
-      },
-    ],
+    installations: [],
+    veteranNote: "Fort Leavenworth is in KS-2 (not KS-3), but the district has a significant veteran population, particularly in Johnson County suburbs.",
   },
 
   tribalNations: [
@@ -63,13 +60,13 @@ export const KS3_DISTRICT = {
 
   education: {
     majorInstitutions: [
-      "University of Kansas (Lawrence) — flagship state university, KU Medical Center in KC",
+      "University of Kansas Medical Center — major healthcare and research institution in KCK (KU main campus in Lawrence is now in KS-1)",
       "Johnson County Community College — one of largest community colleges in the region",
       "Kansas City Kansas Community College",
       "MidAmerica Nazarene University (Olathe)",
-      "University of Saint Mary (Leavenworth)",
+      "Ottawa University (Ottawa, Franklin County)",
     ],
-    k12: "Multiple high-performing school districts in Johnson County (Blue Valley, Shawnee Mission, Olathe, DeSoto). Kansas City KS USD 500 faces urban education challenges. School funding has been a major state issue (Gannon v. State).",
+    k12: "Multiple high-performing school districts in Johnson County (Blue Valley, Shawnee Mission, Olathe, DeSoto). Kansas City KS USD 500 faces urban education challenges. School funding has been a major state issue (Gannon v. State). Franklin and Anderson county school districts are smaller and rural.",
   },
 
   currentRepresentative: {
@@ -83,11 +80,12 @@ export const KS3_DISTRICT = {
   keyLocalIssues: [
     "Housing affordability — Johnson County home prices rising rapidly, KCK gentrification concerns",
     "Transportation — I-35/I-435 corridor congestion, KC metro transit gaps, KCI airport access",
-    "Healthcare access — urban/suburban disparity, Medicaid expansion debate, KU Med capacity",
-    "Education funding — Kansas school finance litigation history, teacher retention",
+    "Healthcare access — urban/suburban/rural disparity, Medicaid expansion debate, KU Med capacity, rural hospital access in Franklin/Anderson counties",
+    "Education funding — Kansas school finance litigation history, teacher retention, rural school consolidation pressures",
     "Immigration — large immigrant communities in KCK and south Johnson County, meatpacking workforce",
-    "Economic development — tech corridor growth, Panasonic battery plant in DeSoto",
+    "Economic development — tech corridor growth, Panasonic battery plant in DeSoto, rural economic development in Franklin/Anderson counties",
     "Wind energy — Kansas produces 52% of electricity from wind (3rd nationally)",
-    "Water — Ogallala Aquifer concerns affect western KS agriculture that feeds the district economy",
+    "Rural-suburban divide — 2022 redistricting added rural Franklin and Anderson counties, creating a district that spans affluent suburbs to farming communities",
+    "Redistricting — ongoing Republican effort to further redraw KS-3 boundaries; district shape itself is a political issue",
   ],
 };
