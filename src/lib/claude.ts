@@ -1,4 +1,5 @@
-import { spawn } from "child_process";
+import { execFile } from "child_process";
+import { existsSync } from "fs";
 
 export interface ClaudeResponse {
   content: string;
@@ -25,19 +26,28 @@ export async function askClaude(
     const env = { ...process.env };
     delete env.CLAUDECODE;
 
-    const proc = spawn("claude", args, {
+    // Find claude binary — execFile doesn't use shell so we need the path
+    const home = env.HOME || "/Users/jasonpreu";
+    const claudePaths = [
+      `${home}/.local/bin/claude`,
+      `${home}/.claude/local/claude`,
+      "/usr/local/bin/claude",
+    ];
+    const claudeBin = claudePaths.find(p => existsSync(p)) || "claude";
+
+    const proc = execFile(claudeBin, args, {
       timeout: timeoutMs,
       env,
-      shell: true,
+      maxBuffer: 10 * 1024 * 1024,
     });
 
     let stdout = "";
     let stderr = "";
 
-    proc.stdout.on("data", (data: Buffer) => {
+    proc.stdout?.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
-    proc.stderr.on("data", (data: Buffer) => {
+    proc.stderr?.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
 
