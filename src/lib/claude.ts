@@ -20,13 +20,13 @@ export async function askClaude(
   if (systemPrompt) {
     args.push("--system-prompt", systemPrompt);
   }
-  args.push(prompt);
+  // Pass prompt via stdin to avoid OS argument length limits on large prompts
 
   return new Promise((resolve, reject) => {
     const env = { ...process.env };
     delete env.CLAUDECODE;
 
-    // Find claude binary — execFile doesn't use shell so we need the path
+    // Find claude binary
     const home = env.HOME || "/Users/jasonpreu";
     const claudePaths = [
       `${home}/.local/bin/claude`,
@@ -39,6 +39,7 @@ export async function askClaude(
       timeout: timeoutMs,
       env,
     });
+    proc.stdin.write(prompt);
     proc.stdin.end();
 
     let stdout = "";
@@ -51,13 +52,17 @@ export async function askClaude(
       stderr += data.toString();
     });
 
-    proc.on("close", (code: number | null) => {
+    proc.on("close", (code: number | null, signal: string | null) => {
       if (code === 0) {
         resolve({ content: stdout.trim() });
       } else {
+        const errorDetail = stderr.trim()
+          || (signal ? `Killed by signal ${signal}` : `Exit code ${code}`)
+          || "Unknown error (no output)";
+        console.error(`[claude] Failed: code=${code} signal=${signal} stderr=${stderr.slice(0, 200)} stdout_len=${stdout.length}`);
         resolve({
           content: stdout.trim(),
-          error: stderr.trim() || `Exit code ${code}`,
+          error: errorDetail,
         });
       }
     });
