@@ -28,10 +28,10 @@ export function registerJob(
 function hasRunToday(jobName: string): boolean {
   const db = getEngineDb();
   const row = db
-    .query<{ value: string }, [string]>(
+    .prepare(
       "SELECT value FROM app_state WHERE key = ?",
     )
-    .get(`last_run:${jobName}`);
+    .get(`last_run:${jobName}`) as { value: string } | undefined;
 
   if (!row) return false;
 
@@ -46,11 +46,10 @@ function hasRunToday(jobName: string): boolean {
 
 function recordRun(jobName: string): void {
   const db = getEngineDb();
-  db.run(
+  db.prepare(
     `INSERT INTO app_state (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    [`last_run:${jobName}`, new Date().toISOString()],
-  );
+  ).run(`last_run:${jobName}`, new Date().toISOString());
 }
 
 const DAILY_MS = 24 * 60 * 60 * 1000;

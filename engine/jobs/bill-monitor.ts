@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import { getEngineDb } from "../db";
 import { log } from "../logger";
 import { askClaudeJson } from "../../src/lib/claude";
@@ -50,8 +50,8 @@ export async function fetchRecentBills(
 }
 
 // Check if a bill is already in our alerts (by source_id)
-export function isAlertExists(db: Database, sourceId: string): boolean {
-  const row = db.query("SELECT id FROM alerts WHERE source_id = ?").get(sourceId);
+export function isAlertExists(db: Database.Database, sourceId: string): boolean {
+  const row = db.prepare("SELECT id FROM alerts WHERE source_id = ?").get(sourceId);
   return !!row;
 }
 
@@ -155,10 +155,8 @@ export async function runBillMonitor(): Promise<void> {
       if (!analysis.relevant) continue;
 
       const sourceId = buildSourceId(bill);
-      db.run(
-        `INSERT INTO alerts (type, source_id, title, summary, domain, confidence, ks3_impact, source_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
+      db.prepare(`INSERT INTO alerts (type, source_id, title, summary, domain, confidence, ks3_impact, source_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
           "bill",
           sourceId,
           bill.title,
@@ -167,8 +165,7 @@ export async function runBillMonitor(): Promise<void> {
           analysis.confidence,
           analysis.ks3Impact,
           bill.url,
-        ],
-      );
+        );
       alertsCreated++;
     } catch (err) {
       log("error", `Bill monitor: failed to analyze bill ${bill.type}${bill.number}`, {

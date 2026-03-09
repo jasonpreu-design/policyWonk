@@ -68,7 +68,7 @@ export async function GET() {
 
     // Look for any active quiz session in app_state
     const rows = db
-      .query(
+      .prepare(
         `SELECT key, value FROM app_state WHERE key LIKE 'quiz_session:%' ORDER BY updated_at DESC LIMIT 1`,
       )
       .all() as { key: string; value: string }[];

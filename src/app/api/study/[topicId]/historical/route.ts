@@ -39,7 +39,7 @@ export async function POST(
   const db = ensureDb();
 
   const topic = db
-    .query("SELECT id, domain, name, description FROM topics WHERE id = ?")
+    .prepare("SELECT id, domain, name, description FROM topics WHERE id = ?")
     .get(topicId) as TopicRow | null;
 
   if (!topic) {

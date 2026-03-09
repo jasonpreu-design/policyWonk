@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import {
   isAlertExists,
   isKs3Relevant,
@@ -7,7 +7,7 @@ import {
   type CongressBill,
 } from "./bill-monitor";
 
-function createTestDb(): Database {
+function createTestDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec(`
     CREATE TABLE alerts (
@@ -48,21 +48,15 @@ describe("bill-monitor", () => {
 
     test("returns true for existing sourceId", () => {
       const db = createTestDb();
-      db.run(
-        `INSERT INTO alerts (type, source_id, title, summary, confidence)
-         VALUES (?, ?, ?, ?, ?)`,
-        ["bill", "HR1234-119", "Test Bill", "A test bill", "moderate"],
-      );
+      db.prepare(`INSERT INTO alerts (type, source_id, title, summary, confidence)
+         VALUES (?, ?, ?, ?, ?)`).run("bill", "HR1234-119", "Test Bill", "A test bill", "moderate");
       expect(isAlertExists(db, "HR1234-119")).toBe(true);
     });
 
     test("returns false for different sourceId when others exist", () => {
       const db = createTestDb();
-      db.run(
-        `INSERT INTO alerts (type, source_id, title, summary, confidence)
-         VALUES (?, ?, ?, ?, ?)`,
-        ["bill", "HR1234-119", "Test Bill", "A test bill", "moderate"],
-      );
+      db.prepare(`INSERT INTO alerts (type, source_id, title, summary, confidence)
+         VALUES (?, ?, ?, ?, ?)`).run("bill", "HR1234-119", "Test Bill", "A test bill", "moderate");
       expect(isAlertExists(db, "S5678-119")).toBe(false);
     });
   });

@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import { getStreak } from "../../src/lib/progress";
 
 export interface DigestData {
@@ -30,12 +30,12 @@ export interface DigestData {
   streak: number;
 }
 
-export function generateDigest(db: Database): DigestData {
+export function generateDigest(db: Database.Database): DigestData {
   const today = new Date().toISOString().slice(0, 10);
 
   // 1. New alerts since yesterday
   const alerts = db
-    .query(
+    .prepare(
       `SELECT title, type, COALESCE(domain, '') as domain, COALESCE(ks3_impact, '') as ks3_impact
        FROM alerts
        WHERE created_at > datetime('now', '-1 day')
@@ -53,7 +53,7 @@ export function generateDigest(db: Database): DigestData {
 
   // 2. Quiz performance (last 24h vs prior week)
   const recentQuiz = db
-    .query(
+    .prepare(
       `SELECT COUNT(*) as count, COALESCE(AVG(score), 0) as avg_score
        FROM quiz_history
        WHERE created_at > datetime('now', '-1 day')`,
@@ -61,7 +61,7 @@ export function generateDigest(db: Database): DigestData {
     .get() as { count: number; avg_score: number };
 
   const recentWeekAvg = db
-    .query(
+    .prepare(
       `SELECT COALESCE(AVG(score), 0) as avg_score
        FROM quiz_history
        WHERE created_at > datetime('now', '-7 days')
@@ -77,7 +77,7 @@ export function generateDigest(db: Database): DigestData {
   }
 
   const bestTopic = db
-    .query(
+    .prepare(
       `SELECT t.name
        FROM quiz_history qh
        JOIN topics t ON qh.topic_id = t.id
@@ -89,7 +89,7 @@ export function generateDigest(db: Database): DigestData {
     .get() as { name: string } | null;
 
   const weakestTopic = db
-    .query(
+    .prepare(
       `SELECT t.name
        FROM quiz_history qh
        JOIN topics t ON qh.topic_id = t.id
@@ -115,7 +115,7 @@ export function generateDigest(db: Database): DigestData {
   // Since we don't store old tier, we look for recently updated competencies
   // that have moved above 'none'
   const milestones = db
-    .query(
+    .prepare(
       `SELECT t.name as topic, c.tier as new_tier
        FROM competencies c
        JOIN topics t ON c.topic_id = t.id
@@ -135,7 +135,7 @@ export function generateDigest(db: Database): DigestData {
 
   // 4. Curriculum recommendations (top 3 pending items)
   const recommendations = db
-    .query(
+    .prepare(
       `SELECT t.name as topic_name, t.domain, COALESCE(cu.notes, 'Recommended by system') as reason
        FROM curriculum cu
        JOIN topics t ON cu.topic_id = t.id
@@ -153,7 +153,7 @@ export function generateDigest(db: Database): DigestData {
 
   // 5. Reviews due
   const reviewsDueRow = db
-    .query(
+    .prepare(
       `SELECT COUNT(*) as count
        FROM review_schedule
        WHERE next_review <= datetime('now')`,

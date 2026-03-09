@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import { buildQuizPrompt, parseQuizResponse, saveQuizQuestions } from "./quiz-generator";
 
 describe("buildQuizPrompt", () => {
@@ -168,18 +168,18 @@ describe("parseQuizResponse", () => {
 });
 
 describe("saveQuizQuestions", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = new Database(":memory:");
     db.exec("PRAGMA foreign_keys=ON");
     const schema = readFileSync(
-      join(dirname(import.meta.path), "schema.sql"),
+      join(import.meta.dirname ?? __dirname, "schema.sql"),
       "utf-8",
     );
     db.exec(schema);
     // Insert a topic for FK reference
-    db.run("INSERT INTO topics (id, domain, name, description) VALUES (1, 'Healthcare', 'ACA', 'Affordable Care Act')");
+    db.prepare("INSERT INTO topics (id, domain, name, description) VALUES (1, 'Healthcare', 'ACA', 'Affordable Care Act')").run();
   });
 
   afterEach(() => {
@@ -216,7 +216,7 @@ describe("saveQuizQuestions", () => {
     expect(ids[1]).toBeGreaterThan(ids[0]);
 
     // Verify data was actually inserted
-    const rows = db.query("SELECT * FROM quiz_questions ORDER BY id").all() as any[];
+    const rows = db.prepare("SELECT * FROM quiz_questions ORDER BY id").all() as any[];
     expect(rows).toHaveLength(2);
     expect(rows[0].question).toBe("What does ACA stand for?");
     expect(rows[0].type).toBe("multiple_choice");
@@ -243,7 +243,7 @@ describe("saveQuizQuestions", () => {
 
     saveQuizQuestions(db, 1, questions);
 
-    const row = db.query("SELECT sources FROM quiz_questions WHERE id = 1").get() as any;
+    const row = db.prepare("SELECT sources FROM quiz_questions WHERE id = 1").get() as any;
     const parsed = JSON.parse(row.sources);
     expect(parsed).toHaveLength(2);
     expect(parsed[0].title).toBe("Source One");
@@ -266,7 +266,7 @@ describe("saveQuizQuestions", () => {
 
     saveQuizQuestions(db, 1, questions);
 
-    const row = db.query("SELECT choices FROM quiz_questions WHERE id = 1").get() as any;
+    const row = db.prepare("SELECT choices FROM quiz_questions WHERE id = 1").get() as any;
     const parsed = JSON.parse(row.choices);
     expect(parsed).toHaveLength(4);
     expect(parsed[0]).toBe("A) One");
@@ -287,7 +287,7 @@ describe("saveQuizQuestions", () => {
 
     saveQuizQuestions(db, 1, questions);
 
-    const row = db.query("SELECT choices FROM quiz_questions WHERE id = 1").get() as any;
+    const row = db.prepare("SELECT choices FROM quiz_questions WHERE id = 1").get() as any;
     expect(row.choices).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { askClaude, extractJson } from "./claude";
 import { getKs3ContextSnippet } from "./ks3-context";
 import type { ConfidenceLevel, Citation } from "./confidence";
 import { CONFIDENCE_ORDER } from "./confidence";
-import type { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 export interface GeneratedQuizQuestion {
   question: string;
@@ -224,7 +224,7 @@ export async function generateQuizQuestions(
  * Returns the inserted row IDs.
  */
 export function saveQuizQuestions(
-  db: Database,
+  db: Database.Database,
   topicId: number,
   questions: GeneratedQuizQuestion[],
 ): number[] {

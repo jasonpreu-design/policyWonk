@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Load the session
     const row = db
-      .query(`SELECT value FROM app_state WHERE key = ?`)
+      .prepare(`SELECT value FROM app_state WHERE key = ?`)
       .get(`quiz_session:${sessionId}`) as { value: string } | null;
 
     if (!row) {

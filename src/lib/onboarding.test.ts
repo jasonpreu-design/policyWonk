@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import { seedTopics } from "./seed-topics";
 import {
   getOnboardingState,
@@ -16,13 +16,13 @@ import {
 } from "./onboarding";
 
 describe("Onboarding State Machine", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = new Database(":memory:");
     db.exec("PRAGMA foreign_keys=ON");
     const schema = readFileSync(
-      join(dirname(import.meta.path), "schema.sql"),
+      join(import.meta.dirname ?? __dirname, "schema.sql"),
       "utf-8"
     );
     db.exec(schema);
@@ -152,7 +152,7 @@ describe("Onboarding State Machine", () => {
       advanceAfterAnswer(db, state, 0.3);
 
       const results = db
-        .query("SELECT * FROM onboarding_results WHERE topic_id = ?")
+        .prepare("SELECT * FROM onboarding_results WHERE topic_id = ?")
         .all(state.currentDomainId!) as any[];
       expect(results.length).toBe(1);
       expect(results[0].tier_reached).toBe("none");
@@ -190,7 +190,7 @@ describe("Onboarding State Machine", () => {
       advanceAfterAnswer(db, level3, 0.3);
 
       const results = db
-        .query(
+        .prepare(
           "SELECT tier_reached FROM onboarding_results WHERE topic_id = ?"
         )
         .get(state.currentDomainId!) as any;
@@ -204,7 +204,7 @@ describe("Onboarding State Machine", () => {
       advanceAfterAnswer(db, atLevel4, 0.9);
 
       const results = db
-        .query(
+        .prepare(
           "SELECT tier_reached FROM onboarding_results WHERE topic_id = ?"
         )
         .get(state.currentDomainId!) as any;
@@ -246,10 +246,7 @@ describe("Onboarding State Machine", () => {
       saveOnboardingState(db, state);
 
       // Insert an onboarding_results row for the last domain
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')",
-        lastDomain.id
-      );
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')").run(lastDomain.id);
 
       const afterRating = advanceAfterRating(db, state, 4);
       expect(afterRating.phase).toBe("results");
@@ -264,7 +261,7 @@ describe("Onboarding State Machine", () => {
       advanceAfterRating(db, afterAnswer, 4);
 
       const result = db
-        .query(
+        .prepare(
           "SELECT self_confidence FROM onboarding_results WHERE topic_id = ?"
         )
         .get(state.currentDomainId!) as any;
@@ -277,18 +274,9 @@ describe("Onboarding State Machine", () => {
       const domains = getAssessmentDomains(db);
 
       // Insert some onboarding results
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'none', 2)",
-        domains[0].id
-      );
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'familiarity', 3)",
-        domains[1].id
-      );
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'mastery', 5)",
-        domains[2].id
-      );
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'none', 2)").run(domains[0].id);
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'familiarity', 3)").run(domains[1].id);
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached, self_confidence) VALUES (?, 'mastery', 5)").run(domains[2].id);
 
       // Set state to results so completeOnboarding can transition
       saveOnboardingState(db, {
@@ -301,7 +289,7 @@ describe("Onboarding State Machine", () => {
 
       // Check competencies were created
       const competencies = db
-        .query("SELECT topic_id, tier, score FROM competencies ORDER BY topic_id")
+        .prepare("SELECT topic_id, tier, score FROM competencies ORDER BY topic_id")
         .all() as any[];
       expect(competencies.length).toBe(3);
       expect(competencies[0].tier).toBe("none");
@@ -313,7 +301,7 @@ describe("Onboarding State Machine", () => {
 
       // Check curriculum entries were created
       const curriculum = db
-        .query(
+        .prepare(
           "SELECT topic_id, priority, suggested_by FROM curriculum ORDER BY topic_id"
         )
         .all() as any[];
@@ -332,10 +320,7 @@ describe("Onboarding State Machine", () => {
 
     it("sets onboarding state to complete", () => {
       const domains = getAssessmentDomains(db);
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')",
-        domains[0].id
-      );
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')").run(domains[0].id);
 
       saveOnboardingState(db, {
         phase: "results",
@@ -351,10 +336,7 @@ describe("Onboarding State Machine", () => {
 
     it("makes needsOnboarding return false", () => {
       const domains = getAssessmentDomains(db);
-      db.run(
-        "INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')",
-        domains[0].id
-      );
+      db.prepare("INSERT INTO onboarding_results (topic_id, tier_reached) VALUES (?, 'awareness')").run(domains[0].id);
 
       saveOnboardingState(db, {
         phase: "results",

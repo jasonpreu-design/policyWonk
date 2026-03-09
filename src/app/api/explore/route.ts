@@ -25,28 +25,28 @@ function findOrCreateExploreTopic(db: ReturnType<typeof ensureDb>, domain?: stri
 
   // Try to find a parent topic (one with no parent_id) matching this domain
   const parent = db
-    .query("SELECT id FROM topics WHERE domain = ? AND parent_id IS NULL LIMIT 1")
+    .prepare("SELECT id FROM topics WHERE domain = ? AND parent_id IS NULL LIMIT 1")
     .get(targetDomain) as { id: number } | null;
 
   if (parent) return parent.id;
 
   // Try any topic in this domain
   const anyTopic = db
-    .query("SELECT id FROM topics WHERE domain = ? LIMIT 1")
+    .prepare("SELECT id FROM topics WHERE domain = ? LIMIT 1")
     .get(targetDomain) as { id: number } | null;
 
   if (anyTopic) return anyTopic.id;
 
   // Fallback: use the first topic in the database
   const fallback = db
-    .query("SELECT id FROM topics LIMIT 1")
+    .prepare("SELECT id FROM topics LIMIT 1")
     .get() as { id: number } | null;
 
   if (fallback) return fallback.id;
 
   // Last resort: create a generic topic
   const result = db
-    .query("INSERT INTO topics (domain, name, description) VALUES (?, ?, ?)")
+    .prepare("INSERT INTO topics (domain, name, description) VALUES (?, ?, ?)")
     .run("General", "Explore Questions", "Auto-created topic for explore results");
   return Number(result.lastInsertRowid);
 }
@@ -100,11 +100,11 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 
   const countRow = db
-    .query("SELECT COUNT(*) as total FROM content_cache WHERE content_type = 'summary'")
+    .prepare("SELECT COUNT(*) as total FROM content_cache WHERE content_type = 'summary'")
     .get() as CountRow;
 
   const rows = db
-    .query(
+    .prepare(
       `SELECT id, title, content, sources, confidence, generated_at
        FROM content_cache
        WHERE content_type = 'summary'

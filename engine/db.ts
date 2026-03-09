@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 
@@ -6,12 +6,12 @@ const DB_PATH =
   process.env.POLICYWONK_DB_PATH ??
   join(process.cwd(), "data", "policywonk.db");
 
-let db: Database | null = null;
+let db: Database.Database | null = null;
 
-export function getEngineDb(): Database {
+export function getEngineDb(): Database.Database {
   if (!db) {
     mkdirSync(dirname(DB_PATH), { recursive: true });
-    db = new Database(DB_PATH, { create: true });
+    db = new Database(DB_PATH);
     db.exec("PRAGMA journal_mode=WAL");
     db.exec("PRAGMA foreign_keys=ON");
   }

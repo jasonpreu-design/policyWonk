@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import type { ConfidenceLevel, Citation } from "./confidence";
 
 export interface ContentItem {
@@ -43,31 +43,31 @@ function rowToContentItem(row: ContentRow): ContentItem {
 }
 
 export function getContentForTopic(
-  db: Database,
+  db: Database.Database,
   topicId: number,
   type?: ContentItem["contentType"]
 ): ContentItem[] {
   if (type) {
     const rows = db
-      .query("SELECT * FROM content_cache WHERE topic_id = ? AND content_type = ? ORDER BY generated_at DESC")
+      .prepare("SELECT * FROM content_cache WHERE topic_id = ? AND content_type = ? ORDER BY generated_at DESC")
       .all(topicId, type) as ContentRow[];
     return rows.map(rowToContentItem);
   }
   const rows = db
-    .query("SELECT * FROM content_cache WHERE topic_id = ? ORDER BY generated_at DESC")
+    .prepare("SELECT * FROM content_cache WHERE topic_id = ? ORDER BY generated_at DESC")
     .all(topicId) as ContentRow[];
   return rows.map(rowToContentItem);
 }
 
-export function getContentById(db: Database, id: number): ContentItem | null {
+export function getContentById(db: Database.Database, id: number): ContentItem | null {
   const row = db
-    .query("SELECT * FROM content_cache WHERE id = ?")
+    .prepare("SELECT * FROM content_cache WHERE id = ?")
     .get(id) as ContentRow | null;
   return row ? rowToContentItem(row) : null;
 }
 
 export function saveContent(
-  db: Database,
+  db: Database.Database,
   topicId: number,
   type: ContentItem["contentType"],
   title: string,
@@ -75,46 +75,43 @@ export function saveContent(
   sources: Citation[],
   confidence: ConfidenceLevel
 ): number {
-  const result = db.run(
-    "INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence) VALUES (?, ?, ?, ?, ?, ?)",
-    [topicId, type, title, content, JSON.stringify(sources), confidence]
-  );
+  const result = db.prepare(
+    "INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(topicId, type, title, content, JSON.stringify(sources), confidence);
   return Number(result.lastInsertRowid);
 }
 
-export function markStale(db: Database, olderThanDays: number): number {
-  const result = db.run(
+export function markStale(db: Database.Database, olderThanDays: number): number {
+  const result = db.prepare(
     `UPDATE content_cache
      SET stale = 1
      WHERE stale = 0
-       AND datetime(COALESCE(refreshed_at, generated_at)) < datetime('now', ? || ' days')`,
-    [`-${olderThanDays}`]
-  );
+       AND datetime(COALESCE(refreshed_at, generated_at)) < datetime('now', ? || ' days')`
+  ).run(`-${olderThanDays}`);
   return result.changes;
 }
 
-export function getStaleContent(db: Database): ContentItem[] {
+export function getStaleContent(db: Database.Database): ContentItem[] {
   const rows = db
-    .query("SELECT * FROM content_cache WHERE stale = 1 ORDER BY generated_at ASC")
+    .prepare("SELECT * FROM content_cache WHERE stale = 1 ORDER BY generated_at ASC")
     .all() as ContentRow[];
   return rows.map(rowToContentItem);
 }
 
 export function refreshContent(
-  db: Database,
+  db: Database.Database,
   id: number,
   content: string,
   sources: Citation[],
   confidence: ConfidenceLevel
 ): void {
-  db.run(
+  db.prepare(
     `UPDATE content_cache
      SET content = ?, sources = ?, confidence = ?, stale = 0, refreshed_at = datetime('now')
-     WHERE id = ?`,
-    [content, JSON.stringify(sources), confidence, id]
-  );
+     WHERE id = ?`
+  ).run(content, JSON.stringify(sources), confidence, id);
 }
 
-export function deleteContent(db: Database, id: number): void {
-  db.run("DELETE FROM content_cache WHERE id = ?", [id]);
+export function deleteContent(db: Database.Database, id: number): void {
+  db.prepare("DELETE FROM content_cache WHERE id = ?").run(id);
 }

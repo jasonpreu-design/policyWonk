@@ -9,7 +9,7 @@ export async function runContentGenerator(): Promise<void> {
 
   // 1. Find curriculum topics that need content
   const topicsNeedingContent = db
-    .query(
+    .prepare(
       `
     SELECT c.topic_id, t.name, t.domain, t.description, comp.tier
     FROM curriculum c

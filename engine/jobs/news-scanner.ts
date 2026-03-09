@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import { getEngineDb } from "../db";
 import { log } from "../logger";
 import { askClaudeJson } from "../../src/lib/claude";
@@ -14,9 +14,9 @@ interface NewsItem {
 }
 
 /** Get active curriculum domains to focus the search */
-export function getActiveDomains(db: Database): string[] {
+export function getActiveDomains(db: Database.Database): string[] {
   const rows = db
-    .query(
+    .prepare(
       `
     SELECT DISTINCT t.domain
     FROM curriculum c
@@ -31,9 +31,9 @@ export function getActiveDomains(db: Database): string[] {
 }
 
 /** Check for duplicate alerts by title similarity within the last 7 days */
-export function isDuplicate(db: Database, title: string): boolean {
+export function isDuplicate(db: Database.Database, title: string): boolean {
   const existing = db
-    .query(
+    .prepare(
       "SELECT title FROM alerts WHERE created_at > datetime('now', '-7 days')",
     )
     .all() as { title: string }[];
@@ -118,10 +118,8 @@ Only include genuinely significant news. Quality over quantity.
       continue;
     }
 
-    db.run(
-      `INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, source_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
+    db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
         "news",
         item.title,
         item.summary,
@@ -129,8 +127,7 @@ Only include genuinely significant news. Quality over quantity.
         item.confidence || "moderate",
         item.ks3Impact,
         item.sourceUrl,
-      ],
-    );
+      );
     alertsCreated++;
   }
 

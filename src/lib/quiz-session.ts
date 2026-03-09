@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import { getDueReviews } from "./spaced-repetition";
 
 export type QuizMode = "review" | "topic" | "mixed";
@@ -79,17 +79,14 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
-function saveSession(db: Database, session: QuizSession): void {
-  db.run(
-    `INSERT OR REPLACE INTO app_state (key, value, updated_at)
-     VALUES (?, ?, datetime('now'))`,
-    [`quiz_session:${session.id}`, JSON.stringify(session)],
-  );
+function saveSession(db: Database.Database, session: QuizSession): void {
+  db.prepare(`INSERT OR REPLACE INTO app_state (key, value, updated_at)
+     VALUES (?, ?, datetime('now'))`).run(`quiz_session:${session.id}`, JSON.stringify(session));
 }
 
-function getQuestionRow(db: Database, questionId: number): QuizQuestionRow | null {
+function getQuestionRow(db: Database.Database, questionId: number): QuizQuestionRow | null {
   const row = db
-    .query(
+    .prepare(
       `SELECT id, topic_id, difficulty, type, question, choices, answer,
               explanation, ks3_context, sources, confidence
        FROM quiz_questions WHERE id = ?`,
@@ -129,7 +126,7 @@ function getQuestionRow(db: Database, questionId: number): QuizQuestionRow | nul
  * Start a new quiz session.
  */
 export function startQuizSession(
-  db: Database,
+  db: Database.Database,
   mode: QuizMode,
   topicId?: number,
   questionCount: number = 10,
@@ -159,7 +156,7 @@ export function startQuizSession(
   return session;
 }
 
-function selectReviewQuestions(db: Database, count: number): number[] {
+function selectReviewQuestions(db: Database.Database, count: number): number[] {
   const dueReviews = getDueReviews(db, count);
   const ids = dueReviews.map((r) => r.questionId);
 
@@ -168,7 +165,7 @@ function selectReviewQuestions(db: Database, count: number): number[] {
     const remaining = count - ids.length;
     const excludeSet = ids.length > 0 ? ids.join(",") : "-1";
     const rows = db
-      .query(
+      .prepare(
         `SELECT qq.id
          FROM quiz_questions qq
          JOIN competencies c ON c.topic_id = qq.topic_id
@@ -186,7 +183,7 @@ function selectReviewQuestions(db: Database, count: number): number[] {
       const stillRemaining = count - ids.length;
       const excludeSet2 = ids.length > 0 ? ids.join(",") : "-1";
       const rows2 = db
-        .query(
+        .prepare(
           `SELECT id FROM quiz_questions
            WHERE id NOT IN (${excludeSet2})
            ORDER BY RANDOM()
@@ -203,20 +200,20 @@ function selectReviewQuestions(db: Database, count: number): number[] {
 }
 
 function selectTopicQuestions(
-  db: Database,
+  db: Database.Database,
   topicId: number,
   count: number,
 ): number[] {
   // Get current competency tier for difficulty mixing
   const comp = db
-    .query(`SELECT tier FROM competencies WHERE topic_id = ?`)
+    .prepare(`SELECT tier FROM competencies WHERE topic_id = ?`)
     .get(topicId) as { tier: string } | null;
   const tier = comp?.tier ?? "none";
   const targetDifficulty = tierDifficulty(tier);
 
   // Prefer questions not recently answered, mix difficulties based on tier
   const rows = db
-    .query(
+    .prepare(
       `SELECT qq.id, qq.difficulty,
               MAX(qh.created_at) as last_answered
        FROM quiz_questions qq
@@ -234,7 +231,7 @@ function selectTopicQuestions(
   return rows.map((r) => r.id);
 }
 
-function selectMixedQuestions(db: Database, count: number): number[] {
+function selectMixedQuestions(db: Database.Database, count: number): number[] {
   // Weight toward weaker topics (lower competency scores)
   // Mix of review items and fresh questions
   const ids: number[] = [];
@@ -251,7 +248,7 @@ function selectMixedQuestions(db: Database, count: number): number[] {
   if (remaining > 0) {
     const excludeSet = ids.length > 0 ? ids.join(",") : "-1";
     const rows = db
-      .query(
+      .prepare(
         `SELECT qq.id
          FROM quiz_questions qq
          LEFT JOIN competencies c ON c.topic_id = qq.topic_id
@@ -272,7 +269,7 @@ function selectMixedQuestions(db: Database, count: number): number[] {
  * Get the next question in the session.
  */
 export function getSessionQuestion(
-  db: Database,
+  db: Database.Database,
   session: QuizSession,
 ): { question: QuizQuestionRow; isLast: boolean } | null {
   if (session.currentIndex >= session.questionIds.length) {
@@ -291,7 +288,7 @@ export function getSessionQuestion(
  * Record an answer and advance the session.
  */
 export function recordSessionAnswer(
-  db: Database,
+  db: Database.Database,
   session: QuizSession,
   questionId: number,
   answer: string,
@@ -300,7 +297,7 @@ export function recordSessionAnswer(
 ): QuizSession {
   // Get the question's topic
   const q = db
-    .query(`SELECT topic_id FROM quiz_questions WHERE id = ?`)
+    .prepare(`SELECT topic_id FROM quiz_questions WHERE id = ?`)
     .get(questionId) as { topic_id: number };
 
   const sessionAnswer: SessionAnswer = {
@@ -313,11 +310,8 @@ export function recordSessionAnswer(
   };
 
   // Save to quiz_history
-  db.run(
-    `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-     VALUES (?, ?, ?, ?, ?)`,
-    [questionId, q.topic_id, answer, score, feedback],
-  );
+  db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+     VALUES (?, ?, ?, ?, ?)`).run(questionId, q.topic_id, answer, score, feedback);
 
   // Update session
   const updated: QuizSession = {
@@ -334,7 +328,7 @@ export function recordSessionAnswer(
  * End session and get summary.
  */
 export function endQuizSession(
-  db: Database,
+  db: Database.Database,
   session: QuizSession,
 ): SessionSummary {
   const { answers } = session;
@@ -353,7 +347,7 @@ export function endQuizSession(
   for (const a of answers) {
     if (!topicMap.has(a.topicId)) {
       const topic = db
-        .query(`SELECT name, domain FROM topics WHERE id = ?`)
+        .prepare(`SELECT name, domain FROM topics WHERE id = ?`)
         .get(a.topicId) as { name: string; domain: string };
       topicMap.set(a.topicId, {
         scores: [],
@@ -382,7 +376,7 @@ export function endQuizSession(
     const result = checkCompetencyAdvancement(db, tid);
     if (result?.advanced) {
       const topic = db
-        .query(`SELECT name FROM topics WHERE id = ?`)
+        .prepare(`SELECT name FROM topics WHERE id = ?`)
         .get(tid) as { name: string };
       competencyChanges.push({
         topicId: tid,
@@ -397,22 +391,17 @@ export function endQuizSession(
   let reviewsScheduled = 0;
   for (const a of answers) {
     const existing = db
-      .query(`SELECT id FROM review_schedule WHERE question_id = ?`)
+      .prepare(`SELECT id FROM review_schedule WHERE question_id = ?`)
       .get(a.questionId) as { id: number } | null;
     if (!existing) {
-      db.run(
-        `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-         VALUES (?, datetime('now', '+1 day'), 1, 2.5, 0)`,
-        [a.questionId],
-      );
+      db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+         VALUES (?, datetime('now', '+1 day'), 1, 2.5, 0)`).run(a.questionId);
       reviewsScheduled++;
     }
   }
 
   // Clean up session from app_state
-  db.run(`DELETE FROM app_state WHERE key = ?`, [
-    `quiz_session:${session.id}`,
-  ]);
+  db.prepare(`DELETE FROM app_state WHERE key = ?`).run(`quiz_session:${session.id}`,);
 
   return {
     totalQuestions,
@@ -429,12 +418,12 @@ export function endQuizSession(
  * Requires 5+ recent answers with avg score >= 0.8.
  */
 export function checkCompetencyAdvancement(
-  db: Database,
+  db: Database.Database,
   topicId: number,
 ): { advanced: boolean; oldTier: string; newTier: string } | null {
   // Get current competency
   const comp = db
-    .query(`SELECT id, tier, score FROM competencies WHERE topic_id = ?`)
+    .prepare(`SELECT id, tier, score FROM competencies WHERE topic_id = ?`)
     .get(topicId) as { id: number; tier: string; score: number } | null;
 
   if (!comp) return null;
@@ -451,7 +440,7 @@ export function checkCompetencyAdvancement(
 
   // Get last 5+ answers at current tier's difficulty level
   const rows = db
-    .query(
+    .prepare(
       `SELECT qh.score
        FROM quiz_history qh
        JOIN quiz_questions qq ON qq.id = qh.question_id
@@ -470,11 +459,8 @@ export function checkCompetencyAdvancement(
 
   if (avg >= 0.8) {
     const newTier = TIER_ORDER[currentTierIndex + 1];
-    db.run(
-      `UPDATE competencies SET tier = ?, score = ?, last_assessed = datetime('now'), updated_at = datetime('now')
-       WHERE topic_id = ?`,
-      [newTier, avg, topicId],
-    );
+    db.prepare(`UPDATE competencies SET tier = ?, score = ?, last_assessed = datetime('now'), updated_at = datetime('now')
+       WHERE topic_id = ?`).run(newTier, avg, topicId);
     return { advanced: true, oldTier: currentTier, newTier };
   }
 

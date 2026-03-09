@@ -1,7 +1,7 @@
 import { getDb, initDb } from "./db";
 import { seedTopics } from "./seed-topics";
 import { initSearchIndex } from "./search";
-import type { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 let initialized = false;
 
@@ -9,7 +9,7 @@ let initialized = false;
  * Ensure the database is initialized and seeded.
  * Safe to call multiple times; only runs once per process.
  */
-export function ensureDb(): Database {
+export function ensureDb(): Database.Database {
   const db = getDb();
   if (!initialized) {
     initDb();

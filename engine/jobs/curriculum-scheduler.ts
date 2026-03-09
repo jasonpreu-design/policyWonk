@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 import { getEngineDb } from "../db";
 import { log } from "../logger";
 
@@ -43,15 +43,12 @@ export async function runCurriculumScheduler(): Promise<void> {
   let added = 0;
   for (const s of suggestions) {
     const exists = db
-      .query(
+      .prepare(
         "SELECT id FROM curriculum WHERE topic_id = ? AND status != 'skipped'",
       )
       .get(s.topicId);
     if (!exists) {
-      db.run(
-        "INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes) VALUES (?, ?, 'pending', ?, ?)",
-        [s.topicId, s.priority, s.suggestedBy, s.notes],
-      );
+      db.prepare("INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes) VALUES (?, ?, 'pending', ?, ?)").run(s.topicId, s.priority, s.suggestedBy, s.notes);
       added++;
     }
   }
@@ -63,22 +60,19 @@ export async function runCurriculumScheduler(): Promise<void> {
 }
 
 /** Mark content older than N days as stale */
-export function markStaleContent(db: Database, days: number): number {
-  const result = db.run(
-    `UPDATE content_cache SET stale = 1
-     WHERE stale = 0 AND COALESCE(refreshed_at, generated_at) < datetime('now', '-' || ? || ' days')`,
-    [days],
-  );
+export function markStaleContent(db: Database.Database, days: number): number {
+  const result = db.prepare(`UPDATE content_cache SET stale = 1
+     WHERE stale = 0 AND COALESCE(refreshed_at, generated_at) < datetime('now', '-' || ? || ' days')`).run(days);
   return result.changes;
 }
 
 /** Find topics where recent scores are lower than older scores */
 export function findDecliningTopics(
-  db: Database,
+  db: Database.Database,
 ): { topicId: number; topicName: string; reason: string }[] {
   // Compare average score from last 7 days vs prior 7-14 days
   const rows = db
-    .query(
+    .prepare(
       `
     SELECT
       t.id as topicId,
@@ -107,11 +101,11 @@ export function findDecliningTopics(
 
 /** Find domains with no competency data */
 export function findDomainGaps(
-  db: Database,
+  db: Database.Database,
 ): { topicId: number; domain: string }[] {
   // Domains where no subtopics have been assessed
   const rows = db
-    .query(
+    .prepare(
       `
     SELECT t.id as topicId, t.domain
     FROM topics t
@@ -130,10 +124,10 @@ export function findDomainGaps(
 
 /** Find alerts whose domains aren't covered in curriculum */
 export function findAlertTopicGaps(
-  db: Database,
+  db: Database.Database,
 ): { topicId: number; alertTitle: string }[] {
   const rows = db
-    .query(
+    .prepare(
       `
     SELECT a.title as alertTitle, t.id as topicId
     FROM alerts a

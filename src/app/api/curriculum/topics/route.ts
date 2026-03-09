@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   const topics = db
-    .query(
+    .prepare(
       `SELECT id, name, domain FROM topics
        WHERE name LIKE ? OR domain LIKE ?
        ORDER BY name ASC

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     // Load the session
     const row = db
-      .query(`SELECT value FROM app_state WHERE key = ?`)
+      .prepare(`SELECT value FROM app_state WHERE key = ?`)
       .get(`quiz_session:${sessionId}`) as { value: string } | null;
 
     if (!row) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Load the question
     const questionRow = db
-      .query(
+      .prepare(
         `SELECT id, topic_id, difficulty, type, question, choices, answer,
                 explanation, ks3_context, sources, confidence
          FROM quiz_questions WHERE id = ?`,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Get topic info for evaluation context
     const topicInfo = db
-      .query(`SELECT name, domain FROM topics WHERE id = ?`)
+      .prepare(`SELECT name, domain FROM topics WHERE id = ?`)
       .get(questionRow.topic_id) as { name: string; domain: string };
 
     // Evaluate the answer

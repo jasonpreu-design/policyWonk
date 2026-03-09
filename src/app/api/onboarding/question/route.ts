@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   // Look up the topic info
   const topic = db
-    .query("SELECT id, domain, name, description FROM topics WHERE id = ?")
+    .prepare("SELECT id, domain, name, description FROM topics WHERE id = ?")
     .get(domainIdNum) as {
     id: number;
     domain: string;

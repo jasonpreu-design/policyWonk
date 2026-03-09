@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import {
   markStaleContent,
   findDecliningTopics,
@@ -7,7 +7,7 @@ import {
   findAlertTopicGaps,
 } from "./curriculum-scheduler";
 
-function createTestDb(): Database {
+function createTestDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec(`
     CREATE TABLE topics (
@@ -102,10 +102,7 @@ function createTestDb(): Database {
   `);
 
   // Seed a root topic for general use
-  db.run(
-    `INSERT INTO topics (id, domain, name) VALUES (?, ?, ?)`,
-    [1, "Healthcare", "ACA Overview"],
-  );
+  db.prepare(`INSERT INTO topics (id, domain, name) VALUES (?, ?, ?)`).run(1, "Healthcare", "ACA Overview");
 
   return db;
 }
@@ -115,28 +112,22 @@ describe("curriculum-scheduler", () => {
     test("marks old content as stale", () => {
       const db = createTestDb();
       // Insert content generated 45 days ago
-      db.run(
-        `INSERT INTO content_cache (topic_id, content_type, title, content, confidence, stale, generated_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-45 days'))`,
-        [1, "deep_dive", "Old Content", "Body text", "moderate", 0],
-      );
+      db.prepare(`INSERT INTO content_cache (topic_id, content_type, title, content, confidence, stale, generated_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-45 days'))`).run(1, "deep_dive", "Old Content", "Body text", "moderate", 0);
       const count = markStaleContent(db, 30);
       expect(count).toBe(1);
-      const row = db.query("SELECT stale FROM content_cache WHERE id = 1").get() as { stale: number };
+      const row = db.prepare("SELECT stale FROM content_cache WHERE id = 1").get() as { stale: number };
       expect(row.stale).toBe(1);
     });
 
     test("leaves recent content unchanged", () => {
       const db = createTestDb();
       // Insert content generated 5 days ago
-      db.run(
-        `INSERT INTO content_cache (topic_id, content_type, title, content, confidence, stale, generated_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-5 days'))`,
-        [1, "deep_dive", "Recent Content", "Body text", "moderate", 0],
-      );
+      db.prepare(`INSERT INTO content_cache (topic_id, content_type, title, content, confidence, stale, generated_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-5 days'))`).run(1, "deep_dive", "Recent Content", "Body text", "moderate", 0);
       const count = markStaleContent(db, 30);
       expect(count).toBe(0);
-      const row = db.query("SELECT stale FROM content_cache WHERE id = 1").get() as { stale: number };
+      const row = db.prepare("SELECT stale FROM content_cache WHERE id = 1").get() as { stale: number };
       expect(row.stale).toBe(0);
     });
   });
@@ -145,33 +136,18 @@ describe("curriculum-scheduler", () => {
     test("identifies score drops", () => {
       const db = createTestDb();
       // Need a quiz question to satisfy FK
-      db.run(
-        `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [1, 1, 1, "multiple_choice", "Test?", "A", "moderate"],
-      );
+      db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`).run(1, 1, 1, "multiple_choice", "Test?", "A", "moderate");
       // Older scores (8-14 days ago): high scores
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-10 days'))`,
-        [1, 1, "A", 0.9],
-      );
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-12 days'))`,
-        [1, 1, "A", 0.85],
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-10 days'))`).run(1, 1, "A", 0.9);
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-12 days'))`).run(1, 1, "A", 0.85);
       // Recent scores (0-7 days ago): low scores
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-2 days'))`,
-        [1, 1, "B", 0.4],
-      );
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-3 days'))`,
-        [1, 1, "B", 0.5],
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-2 days'))`).run(1, 1, "B", 0.4);
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-3 days'))`).run(1, 1, "B", 0.5);
       const declining = findDecliningTopics(db);
       expect(declining.length).toBe(1);
       expect(declining[0].topicId).toBe(1);
@@ -180,23 +156,14 @@ describe("curriculum-scheduler", () => {
 
     test("ignores stable topics", () => {
       const db = createTestDb();
-      db.run(
-        `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [1, 1, 1, "multiple_choice", "Test?", "A", "moderate"],
-      );
+      db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`).run(1, 1, 1, "multiple_choice", "Test?", "A", "moderate");
       // Older scores: 0.8
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-10 days'))`,
-        [1, 1, "A", 0.8],
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-10 days'))`).run(1, 1, "A", 0.8);
       // Recent scores: 0.8 (same, no decline)
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-         VALUES (?, ?, ?, ?, datetime('now', '-2 days'))`,
-        [1, 1, "A", 0.8],
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+         VALUES (?, ?, ?, ?, datetime('now', '-2 days'))`).run(1, 1, "A", 0.8);
       const declining = findDecliningTopics(db);
       expect(declining.length).toBe(0);
     });
@@ -206,15 +173,9 @@ describe("curriculum-scheduler", () => {
     test("finds domains with no competencies", () => {
       const db = createTestDb();
       // Add a second domain with no competency data
-      db.run(
-        `INSERT INTO topics (id, domain, name) VALUES (?, ?, ?)`,
-        [2, "Education", "K-12 Funding"],
-      );
+      db.prepare(`INSERT INTO topics (id, domain, name) VALUES (?, ?, ?)`).run(2, "Education", "K-12 Funding");
       // Give Healthcare a real competency so it's not a gap
-      db.run(
-        `INSERT INTO competencies (topic_id, tier, score) VALUES (?, ?, ?)`,
-        [1, "awareness", 0.5],
-      );
+      db.prepare(`INSERT INTO competencies (topic_id, tier, score) VALUES (?, ?, ?)`).run(1, "awareness", 0.5);
       const gaps = findDomainGaps(db);
       expect(gaps.length).toBe(1);
       expect(gaps[0].domain).toBe("Education");
@@ -224,10 +185,7 @@ describe("curriculum-scheduler", () => {
     test("excludes assessed domains", () => {
       const db = createTestDb();
       // Healthcare has a competency
-      db.run(
-        `INSERT INTO competencies (topic_id, tier, score) VALUES (?, ?, ?)`,
-        [1, "familiarity", 0.6],
-      );
+      db.prepare(`INSERT INTO competencies (topic_id, tier, score) VALUES (?, ?, ?)`).run(1, "familiarity", 0.6);
       const gaps = findDomainGaps(db);
       expect(gaps.length).toBe(0);
     });
@@ -237,11 +195,8 @@ describe("curriculum-scheduler", () => {
     test("finds uncovered alert domains", () => {
       const db = createTestDb();
       // Alert in Healthcare domain, not studied
-      db.run(
-        `INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`,
-        ["news", "New ACA ruling", "Summary", "Healthcare", "moderate", 0],
-      );
+      db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`).run("news", "New ACA ruling", "Summary", "Healthcare", "moderate", 0);
       // No curriculum entry for Healthcare topic
       const alertGaps = findAlertTopicGaps(db);
       expect(alertGaps.length).toBe(1);
@@ -251,27 +206,18 @@ describe("curriculum-scheduler", () => {
 
     test("excludes alerts already in curriculum", () => {
       const db = createTestDb();
-      db.run(
-        `INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`,
-        ["news", "New ACA ruling", "Summary", "Healthcare", "moderate", 0],
-      );
+      db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`).run("news", "New ACA ruling", "Summary", "Healthcare", "moderate", 0);
       // Healthcare is already in curriculum as pending
-      db.run(
-        `INSERT INTO curriculum (topic_id, priority, status, suggested_by) VALUES (?, ?, ?, ?)`,
-        [1, 10, "pending", "system"],
-      );
+      db.prepare(`INSERT INTO curriculum (topic_id, priority, status, suggested_by) VALUES (?, ?, ?, ?)`).run(1, 10, "pending", "system");
       const alertGaps = findAlertTopicGaps(db);
       expect(alertGaps.length).toBe(0);
     });
 
     test("excludes studied alerts", () => {
       const db = createTestDb();
-      db.run(
-        `INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`,
-        ["news", "New ACA ruling", "Summary", "Healthcare", "moderate", 1],
-      );
+      db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, studied, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`).run("news", "New ACA ruling", "Summary", "Healthcare", "moderate", 1);
       const alertGaps = findAlertTopicGaps(db);
       expect(alertGaps.length).toBe(0);
     });

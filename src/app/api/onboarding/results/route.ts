@@ -5,7 +5,7 @@ export async function GET() {
   const db = ensureDb();
 
   const results = db
-    .query(
+    .prepare(
       `SELECT r.topic_id, r.tier_reached, r.self_confidence, t.name, t.domain
        FROM onboarding_results r
        JOIN topics t ON t.id = r.topic_id

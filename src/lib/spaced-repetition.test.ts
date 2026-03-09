@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import {
   calculateNextReview,
   scoreToQuality,
@@ -11,24 +11,20 @@ import {
   getDueReviewCount,
 } from "./spaced-repetition";
 
-function setupDb(): Database {
+function setupDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
   const schema = readFileSync(
-    join(dirname(import.meta.path), "schema.sql"),
+    join(import.meta.dirname ?? __dirname, "schema.sql"),
     "utf-8",
   );
   db.exec(schema);
   // Seed a topic and quiz question for FK constraints
-  db.run("INSERT INTO topics (id, domain, name) VALUES (1, 'Test', 'Test Topic')");
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-     VALUES (1, 1, 1, 'multiple_choice', 'What is 2+2?', '4', 'verified')`,
-  );
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-     VALUES (2, 1, 2, 'short_answer', 'Capital of France?', 'Paris', 'verified')`,
-  );
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (1, 'Test', 'Test Topic')").run();
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+     VALUES (1, 1, 1, 'multiple_choice', 'What is 2+2?', '4', 'verified')`).run();
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+     VALUES (2, 1, 2, 'short_answer', 'Capital of France?', 'Paris', 'verified')`).run();
   return db;
 }
 
@@ -90,7 +86,7 @@ describe("scoreToQuality", () => {
 });
 
 describe("database operations", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -103,7 +99,7 @@ describe("database operations", () => {
   it("scheduleNewCard creates a review entry", () => {
     scheduleNewCard(db, 1);
     const row = db
-      .query("SELECT * FROM review_schedule WHERE question_id = 1")
+      .prepare("SELECT * FROM review_schedule WHERE question_id = 1")
       .get() as any;
     expect(row).toBeTruthy();
     expect(row.interval_days).toBe(1);
@@ -115,10 +111,8 @@ describe("database operations", () => {
     // Schedule card 1 as due now
     scheduleNewCard(db, 1);
     // Schedule card 2 far in the future
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-       VALUES (2, datetime('now', '+30 days'), 30, 2.5, 5)`,
-    );
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+       VALUES (2, datetime('now', '+30 days'), 30, 2.5, 5)`).run();
 
     const due = getDueReviews(db);
     expect(due.length).toBe(1);
@@ -134,7 +128,7 @@ describe("database operations", () => {
     expect(result.easeFactor).toBeGreaterThanOrEqual(2.5);
 
     const row = db
-      .query("SELECT * FROM review_schedule WHERE question_id = 1")
+      .prepare("SELECT * FROM review_schedule WHERE question_id = 1")
       .get() as any;
     expect(row.interval_days).toBe(result.intervalDays);
     expect(row.ease_factor).toBe(result.easeFactor);

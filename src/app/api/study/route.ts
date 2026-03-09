@@ -23,14 +23,14 @@ export async function GET() {
 
   // Get all subtopics (topics with a parent_id)
   const subtopics = db
-    .query(
+    .prepare(
       "SELECT id, parent_id, domain, name, description FROM topics WHERE parent_id IS NOT NULL ORDER BY domain, sort_order"
     )
     .all() as TopicRow[];
 
   // Get competency tiers for all topics
   const competencies = db
-    .query("SELECT topic_id, tier FROM competencies")
+    .prepare("SELECT topic_id, tier FROM competencies")
     .all() as CompetencyRow[];
   const tierMap = new Map<number, string>();
   for (const c of competencies) {
@@ -39,7 +39,7 @@ export async function GET() {
 
   // Check which topics have cached deep_dive content
   const cached = db
-    .query(
+    .prepare(
       "SELECT DISTINCT topic_id FROM content_cache WHERE content_type = 'deep_dive' AND stale = 0"
     )
     .all() as ContentExistsRow[];

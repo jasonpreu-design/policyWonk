@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 export interface OverallStats {
   totalQuestionsAnswered: number;
@@ -38,10 +38,10 @@ export interface WeakTopic {
   reason: string;
 }
 
-export function getStreak(db: Database): number {
+export function getStreak(db: Database.Database): number {
   // Get distinct dates with quiz activity, ordered descending
   const rows = db
-    .query(
+    .prepare(
       `SELECT DISTINCT date(created_at) as day
        FROM quiz_history
        ORDER BY day DESC`,
@@ -76,16 +76,16 @@ export function getStreak(db: Database): number {
   return streak;
 }
 
-export function getOverallStats(db: Database): OverallStats {
+export function getOverallStats(db: Database.Database): OverallStats {
   const quizStats = db
-    .query(
+    .prepare(
       `SELECT COUNT(*) as total, COALESCE(AVG(score), 0) as avg_score
        FROM quiz_history`,
     )
     .get() as { total: number; avg_score: number };
 
   const topicsStudied = db
-    .query(
+    .prepare(
       `SELECT COUNT(DISTINCT topic_id) as count
        FROM (
          SELECT topic_id FROM quiz_history
@@ -96,7 +96,7 @@ export function getOverallStats(db: Database): OverallStats {
     .get() as { count: number };
 
   const reviewsDue = db
-    .query(
+    .prepare(
       `SELECT COUNT(*) as count
        FROM review_schedule
        WHERE next_review <= datetime('now')`,
@@ -104,7 +104,7 @@ export function getOverallStats(db: Database): OverallStats {
     .get() as { count: number };
 
   const domainsAtFluency = db
-    .query(
+    .prepare(
       `SELECT COUNT(DISTINCT t.domain) as count
        FROM competencies c
        JOIN topics t ON c.topic_id = t.id
@@ -113,7 +113,7 @@ export function getOverallStats(db: Database): OverallStats {
     .get() as { count: number };
 
   const domainsAtMastery = db
-    .query(
+    .prepare(
       `SELECT COUNT(DISTINCT t.domain) as count
        FROM competencies c
        JOIN topics t ON c.topic_id = t.id
@@ -132,10 +132,10 @@ export function getOverallStats(db: Database): OverallStats {
   };
 }
 
-export function getDomainProgress(db: Database): DomainProgress[] {
+export function getDomainProgress(db: Database.Database): DomainProgress[] {
   // Get distinct domains with their basic stats
   const domains = db
-    .query(
+    .prepare(
       `SELECT
          MIN(t.id) as domain_id,
          t.domain,
@@ -190,11 +190,11 @@ export function getDomainProgress(db: Database): DomainProgress[] {
 }
 
 function calculateDomainTrend(
-  db: Database,
+  db: Database.Database,
   domain: string,
 ): "improving" | "stable" | "declining" {
   const recent = db
-    .query(
+    .prepare(
       `SELECT AVG(qh.score) as avg_score
        FROM quiz_history qh
        JOIN topics t ON qh.topic_id = t.id
@@ -204,7 +204,7 @@ function calculateDomainTrend(
     .get(domain) as { avg_score: number | null };
 
   const prior = db
-    .query(
+    .prepare(
       `SELECT AVG(qh.score) as avg_score
        FROM quiz_history qh
        JOIN topics t ON qh.topic_id = t.id
@@ -225,7 +225,7 @@ function calculateDomainTrend(
 }
 
 export function getRecentActivity(
-  db: Database,
+  db: Database.Database,
   days: number,
 ): RecentActivity[] {
   const results: RecentActivity[] = [];
@@ -233,12 +233,12 @@ export function getRecentActivity(
   for (let i = 0; i < days; i++) {
     const dayOffset = `-${i} days`;
     const dateStr = db
-      .query(`SELECT date('now', ?) as d`)
+      .prepare(`SELECT date('now', ?) as d`)
       .get(dayOffset) as { d: string };
     const day = dateStr.d;
 
     const quizStats = db
-      .query(
+      .prepare(
         `SELECT COUNT(*) as count, COALESCE(AVG(score), 0) as avg_score
          FROM quiz_history
          WHERE date(created_at) = ?`,
@@ -246,7 +246,7 @@ export function getRecentActivity(
       .get(day) as { count: number; avg_score: number };
 
     const topics = db
-      .query(
+      .prepare(
         `SELECT DISTINCT t.name
          FROM quiz_history qh
          JOIN topics t ON qh.topic_id = t.id
@@ -255,7 +255,7 @@ export function getRecentActivity(
       .all(day) as { name: string }[];
 
     const alertsRead = db
-      .query(
+      .prepare(
         `SELECT COUNT(*) as count
          FROM alerts
          WHERE read = 1 AND date(created_at) = ?`,
@@ -276,9 +276,9 @@ export function getRecentActivity(
   return results;
 }
 
-export function getWeakestTopics(db: Database, limit: number): WeakTopic[] {
+export function getWeakestTopics(db: Database.Database, limit: number): WeakTopic[] {
   const topics = db
-    .query(
+    .prepare(
       `SELECT
          t.id as topic_id,
          t.name as topic_name,
@@ -350,7 +350,7 @@ export function getWeakestTopics(db: Database, limit: number): WeakTopic[] {
 }
 
 export function getStrongestTopics(
-  db: Database,
+  db: Database.Database,
   limit: number,
 ): {
   topicId: number;
@@ -360,7 +360,7 @@ export function getStrongestTopics(
   averageScore: number;
 }[] {
   const topics = db
-    .query(
+    .prepare(
       `SELECT
          t.id as topic_id,
          t.name as topic_name,

@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countRow = db
-    .query(`SELECT COUNT(*) as total FROM curriculum c ${where}`)
+    .prepare(`SELECT COUNT(*) as total FROM curriculum c ${where}`)
     .get(...params) as CountRow;
 
   const rows = db
-    .query(
+    .prepare(
       `SELECT c.*, t.name as topic_name, t.domain as topic_domain
        FROM curriculum c
        JOIN topics t ON t.id = c.topic_id
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
   // Verify topic exists
   const topic = db
-    .query("SELECT name, domain FROM topics WHERE id = ?")
+    .prepare("SELECT name, domain FROM topics WHERE id = ?")
     .get(topicId) as TopicRow | null;
 
   if (!topic) {
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
   // Check for duplicate
   const existing = db
-    .query(
+    .prepare(
       "SELECT id FROM curriculum WHERE topic_id = ? AND status IN ('pending', 'in_progress') LIMIT 1"
     )
     .get(topicId) as { id: number } | null;
@@ -110,14 +110,14 @@ export async function POST(request: NextRequest) {
   }
 
   const result = db
-    .query(
+    .prepare(
       `INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
        VALUES (?, ?, 'pending', 'user', ?)`
     )
     .run(topicId, priority ?? 50, notes ?? null);
 
   const row = db
-    .query(
+    .prepare(
       `SELECT c.*, t.name as topic_name, t.domain as topic_domain
        FROM curriculum c
        JOIN topics t ON t.id = c.topic_id
@@ -157,7 +157,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const existing = db
-    .query("SELECT id FROM curriculum WHERE id = ?")
+    .prepare("SELECT id FROM curriculum WHERE id = ?")
     .get(id) as { id: number } | null;
 
   if (!existing) {
@@ -194,10 +194,10 @@ export async function PATCH(request: NextRequest) {
   updates.push("updated_at = datetime('now')");
   params.push(id);
 
-  db.query(`UPDATE curriculum SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  db.prepare(`UPDATE curriculum SET ${updates.join(", ")} WHERE id = ?`).run(...params);
 
   const row = db
-    .query(
+    .prepare(
       `SELECT c.*, t.name as topic_name, t.domain as topic_domain
        FROM curriculum c
        JOIN topics t ON t.id = c.topic_id
@@ -233,14 +233,14 @@ export async function DELETE(request: NextRequest) {
   }
 
   const existing = db
-    .query("SELECT id FROM curriculum WHERE id = ?")
+    .prepare("SELECT id FROM curriculum WHERE id = ?")
     .get(parseInt(id, 10)) as { id: number } | null;
 
   if (!existing) {
     return NextResponse.json({ error: "Curriculum item not found" }, { status: 404 });
   }
 
-  db.query("DELETE FROM curriculum WHERE id = ?").run(parseInt(id, 10));
+  db.prepare("DELETE FROM curriculum WHERE id = ?").run(parseInt(id, 10));
 
   return NextResponse.json({ deleted: true });
 }

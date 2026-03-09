@@ -35,7 +35,7 @@ Claude Code CLI in `--print` mode via subprocess (`src/lib/claude.ts`). No API k
 
 ### Database
 
-Single SQLite file at `data/policywonk.db` (configurable via `POLICYWONK_DB_PATH`). Uses `bun:sqlite` native driver. Schema in `src/lib/schema.sql`. Lazy-initialized via `src/lib/ensure-db.ts` — call `ensureDb()` in API routes; it runs schema + seeds + FTS5 index once per process.
+Single SQLite file at `data/policywonk.db` (configurable via `POLICYWONK_DB_PATH`). Uses `better-sqlite3` native driver. Schema in `src/lib/schema.sql`. Lazy-initialized via `src/lib/ensure-db.ts` — call `ensureDb()` in API routes; it runs schema + seeds + FTS5 index once per process.
 
 The engine has its own connection at `engine/db.ts` but uses the same database file and schema.
 

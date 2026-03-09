@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import {
   startQuizSession,
   getSessionQuestion,
@@ -10,72 +10,48 @@ import {
   checkCompetencyAdvancement,
 } from "./quiz-session";
 
-function setupDb(): Database {
+function setupDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
   const schema = readFileSync(
-    join(dirname(import.meta.path), "schema.sql"),
+    join(import.meta.dirname ?? __dirname, "schema.sql"),
     "utf-8",
   );
   db.exec(schema);
 
   // Seed topics
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (1, 'Healthcare', 'Affordable Care Act')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (2, 'Finance', 'Federal Reserve')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (3, 'Education', 'Title IX')",
-  );
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (1, 'Healthcare', 'Affordable Care Act')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (2, 'Finance', 'Federal Reserve')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (3, 'Education', 'Title IX')").run();
 
   // Seed competencies
-  db.run(
-    "INSERT INTO competencies (topic_id, tier, score) VALUES (1, 'awareness', 0.5)",
-  );
-  db.run(
-    "INSERT INTO competencies (topic_id, tier, score) VALUES (2, 'none', 0.2)",
-  );
-  db.run(
-    "INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'familiarity', 0.6)",
-  );
+  db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (1, 'awareness', 0.5)").run();
+  db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (2, 'none', 0.2)").run();
+  db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'familiarity', 0.6)").run();
 
   // Seed quiz questions — topic 1 (Healthcare)
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (1, 1, 1, 'multiple_choice', 'What year was the ACA signed?', '2010', 'Signed by Obama in 2010.', 'verified')`,
-  );
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (2, 1, 1, 'multiple_choice', 'What does ACA stand for?', 'Affordable Care Act', 'Full name of the law.', 'verified')`,
-  );
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (3, 1, 2, 'short_answer', 'Explain the individual mandate.', 'Requirement to have insurance or pay penalty.', 'Key provision.', 'verified')`,
-  );
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (1, 1, 1, 'multiple_choice', 'What year was the ACA signed?', '2010', 'Signed by Obama in 2010.', 'verified')`).run();
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (2, 1, 1, 'multiple_choice', 'What does ACA stand for?', 'Affordable Care Act', 'Full name of the law.', 'verified')`).run();
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (3, 1, 2, 'short_answer', 'Explain the individual mandate.', 'Requirement to have insurance or pay penalty.', 'Key provision.', 'verified')`).run();
 
   // Seed quiz questions — topic 2 (Finance)
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (4, 2, 1, 'multiple_choice', 'Who chairs the Federal Reserve?', 'Jerome Powell', 'Current chair.', 'verified')`,
-  );
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (5, 2, 1, 'multiple_choice', 'What is the Fed Funds Rate?', 'Interest rate at which banks lend reserves.', 'Key rate.', 'verified')`,
-  );
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (4, 2, 1, 'multiple_choice', 'Who chairs the Federal Reserve?', 'Jerome Powell', 'Current chair.', 'verified')`).run();
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (5, 2, 1, 'multiple_choice', 'What is the Fed Funds Rate?', 'Interest rate at which banks lend reserves.', 'Key rate.', 'verified')`).run();
 
   // Seed quiz questions — topic 3 (Education)
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
-     VALUES (6, 3, 2, 'short_answer', 'What does Title IX prohibit?', 'Sex discrimination in education.', 'Civil rights law.', 'verified')`,
-  );
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, explanation, confidence)
+     VALUES (6, 3, 2, 'short_answer', 'What does Title IX prohibit?', 'Sex discrimination in education.', 'Civil rights law.', 'verified')`).run();
 
   return db;
 }
 
 describe("startQuizSession — review mode", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -87,14 +63,10 @@ describe("startQuizSession — review mode", () => {
 
   it("pulls due reviews when available", () => {
     // Schedule reviews due now
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-       VALUES (1, datetime('now', '-1 hour'), 1, 2.5, 0)`,
-    );
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-       VALUES (4, datetime('now', '-1 hour'), 1, 2.5, 0)`,
-    );
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+       VALUES (1, datetime('now', '-1 hour'), 1, 2.5, 0)`).run();
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+       VALUES (4, datetime('now', '-1 hour'), 1, 2.5, 0)`).run();
 
     const session = startQuizSession(db, "review", undefined, 5);
     expect(session.mode).toBe("review");
@@ -115,7 +87,7 @@ describe("startQuizSession — review mode", () => {
   it("saves session to app_state", () => {
     const session = startQuizSession(db, "review", undefined, 3);
     const row = db
-      .query("SELECT value FROM app_state WHERE key = ?")
+      .prepare("SELECT value FROM app_state WHERE key = ?")
       .get(`quiz_session:${session.id}`) as { value: string } | null;
     expect(row).toBeTruthy();
     const stored = JSON.parse(row!.value);
@@ -125,7 +97,7 @@ describe("startQuizSession — review mode", () => {
 });
 
 describe("startQuizSession — topic mode", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -142,7 +114,7 @@ describe("startQuizSession — topic mode", () => {
     // All questions should be from topic 1
     for (const qid of session.questionIds) {
       const q = db
-        .query("SELECT topic_id FROM quiz_questions WHERE id = ?")
+        .prepare("SELECT topic_id FROM quiz_questions WHERE id = ?")
         .get(qid) as { topic_id: number };
       expect(q.topic_id).toBe(1);
     }
@@ -156,10 +128,8 @@ describe("startQuizSession — topic mode", () => {
 
   it("prefers questions not recently answered", () => {
     // Mark question 1 as recently answered
-    db.run(
-      `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-       VALUES (1, 1, 'test', 0.8, 'good')`,
-    );
+    db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+       VALUES (1, 1, 'test', 0.8, 'good')`).run();
 
     const session = startQuizSession(db, "topic", 1, 3);
     // Questions 2 and 3 (unanswered) should come before question 1
@@ -172,7 +142,7 @@ describe("startQuizSession — topic mode", () => {
 });
 
 describe("startQuizSession — mixed mode", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -188,7 +158,7 @@ describe("startQuizSession — mixed mode", () => {
     const topicIds = new Set<number>();
     for (const qid of session.questionIds) {
       const q = db
-        .query("SELECT topic_id FROM quiz_questions WHERE id = ?")
+        .prepare("SELECT topic_id FROM quiz_questions WHERE id = ?")
         .get(qid) as { topic_id: number };
       topicIds.add(q.topic_id);
     }
@@ -200,7 +170,7 @@ describe("startQuizSession — mixed mode", () => {
     const session = startQuizSession(db, "mixed", undefined, 6);
     const hasWeakTopic = session.questionIds.some((qid) => {
       const q = db
-        .query("SELECT topic_id FROM quiz_questions WHERE id = ?")
+        .prepare("SELECT topic_id FROM quiz_questions WHERE id = ?")
         .get(qid) as { topic_id: number };
       return q.topic_id === 2;
     });
@@ -209,7 +179,7 @@ describe("startQuizSession — mixed mode", () => {
 });
 
 describe("getSessionQuestion", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -253,7 +223,7 @@ describe("getSessionQuestion", () => {
 });
 
 describe("recordSessionAnswer", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -283,7 +253,7 @@ describe("recordSessionAnswer", () => {
 
     // Verify quiz_history row
     const row = db
-      .query(
+      .prepare(
         "SELECT * FROM quiz_history WHERE question_id = ? ORDER BY created_at DESC LIMIT 1",
       )
       .get(questionId) as {
@@ -309,7 +279,7 @@ describe("recordSessionAnswer", () => {
     );
 
     const row = db
-      .query("SELECT value FROM app_state WHERE key = ?")
+      .prepare("SELECT value FROM app_state WHERE key = ?")
       .get(`quiz_session:${updated.id}`) as { value: string };
     const stored = JSON.parse(row.value);
     expect(stored.currentIndex).toBe(1);
@@ -318,7 +288,7 @@ describe("recordSessionAnswer", () => {
 });
 
 describe("endQuizSession", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -367,7 +337,7 @@ describe("endQuizSession", () => {
     endQuizSession(db, current);
 
     const row = db
-      .query("SELECT value FROM app_state WHERE key = ?")
+      .prepare("SELECT value FROM app_state WHERE key = ?")
       .get(`quiz_session:${session.id}`);
     expect(row).toBeNull();
   });
@@ -382,7 +352,7 @@ describe("endQuizSession", () => {
 });
 
 describe("checkCompetencyAdvancement", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -396,10 +366,8 @@ describe("checkCompetencyAdvancement", () => {
     // Topic 1 is at 'awareness' tier, which maps to difficulty 1
     // Insert 6 high-scoring answers at difficulty 1
     for (let i = 0; i < 6; i++) {
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-         VALUES (1, 1, 'correct', 0.9, 'Great')`,
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+         VALUES (1, 1, 'correct', 0.9, 'Great')`).run();
     }
 
     const result = checkCompetencyAdvancement(db, 1);
@@ -410,7 +378,7 @@ describe("checkCompetencyAdvancement", () => {
 
     // Verify DB was updated
     const comp = db
-      .query("SELECT tier FROM competencies WHERE topic_id = 1")
+      .prepare("SELECT tier FROM competencies WHERE topic_id = 1")
       .get() as { tier: string };
     expect(comp.tier).toBe("familiarity");
   });
@@ -418,10 +386,8 @@ describe("checkCompetencyAdvancement", () => {
   it("does not advance with too few answers", () => {
     // Only 3 answers — need at least 5
     for (let i = 0; i < 3; i++) {
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-         VALUES (1, 1, 'correct', 0.95, 'Great')`,
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+         VALUES (1, 1, 'correct', 0.95, 'Great')`).run();
     }
 
     const result = checkCompetencyAdvancement(db, 1);
@@ -434,10 +400,8 @@ describe("checkCompetencyAdvancement", () => {
   it("does not advance when average score too low", () => {
     // 6 answers with low scores
     for (let i = 0; i < 6; i++) {
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-         VALUES (1, 1, 'wrong', 0.4, 'Needs work')`,
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+         VALUES (1, 1, 'wrong', 0.4, 'Needs work')`).run();
     }
 
     const result = checkCompetencyAdvancement(db, 1);
@@ -453,13 +417,11 @@ describe("checkCompetencyAdvancement", () => {
 
   it("does not advance past mastery", () => {
     // Set topic to mastery
-    db.run("UPDATE competencies SET tier = 'mastery' WHERE topic_id = 1");
+    db.prepare("UPDATE competencies SET tier = 'mastery' WHERE topic_id = 1").run();
 
     for (let i = 0; i < 10; i++) {
-      db.run(
-        `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
-         VALUES (1, 1, 'correct', 1.0, 'Perfect')`,
-      );
+      db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, feedback)
+         VALUES (1, 1, 'correct', 1.0, 'Perfect')`).run();
     }
 
     const result = checkCompetencyAdvancement(db, 1);

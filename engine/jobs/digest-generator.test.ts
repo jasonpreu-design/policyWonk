@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { generateDigest } from "./digest-generator";
 
-function createTestDb(): Database {
+function createTestDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec(`
     CREATE TABLE topics (
@@ -83,16 +83,10 @@ function createTestDb(): Database {
   return db;
 }
 
-function seedTopics(db: Database): void {
-  db.run(
-    `INSERT INTO topics (id, domain, name) VALUES (1, 'cybersecurity', 'Network Security')`,
-  );
-  db.run(
-    `INSERT INTO topics (id, domain, name) VALUES (2, 'policy', 'Data Privacy')`,
-  );
-  db.run(
-    `INSERT INTO topics (id, domain, name) VALUES (3, 'cybersecurity', 'Incident Response')`,
-  );
+function seedTopics(db: Database.Database): void {
+  db.prepare(`INSERT INTO topics (id, domain, name) VALUES (1, 'cybersecurity', 'Network Security')`).run();
+  db.prepare(`INSERT INTO topics (id, domain, name) VALUES (2, 'policy', 'Data Privacy')`).run();
+  db.prepare(`INSERT INTO topics (id, domain, name) VALUES (3, 'cybersecurity', 'Incident Response')`).run();
 }
 
 describe("digest-generator", () => {
@@ -138,16 +132,12 @@ describe("digest-generator", () => {
     seedTopics(db);
 
     // Recent alert (should be included)
-    db.run(
-      `INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, created_at)
-       VALUES ('bill', 'Recent Bill', 'A recent bill', 'cybersecurity', 'high', 'Direct impact', datetime('now', '-1 hour'))`,
-    );
+    db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, created_at)
+       VALUES ('bill', 'Recent Bill', 'A recent bill', 'cybersecurity', 'high', 'Direct impact', datetime('now', '-1 hour'))`).run();
 
     // Old alert (should be excluded)
-    db.run(
-      `INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, created_at)
-       VALUES ('news', 'Old News', 'Old news item', 'policy', 'moderate', 'Indirect', datetime('now', '-2 days'))`,
-    );
+    db.prepare(`INSERT INTO alerts (type, title, summary, domain, confidence, ks3_impact, created_at)
+       VALUES ('news', 'Old News', 'Old news item', 'policy', 'moderate', 'Indirect', datetime('now', '-2 days'))`).run();
 
     const digest = generateDigest(db);
 
@@ -163,24 +153,16 @@ describe("digest-generator", () => {
     seedTopics(db);
 
     // Create quiz questions
-    db.run(
-      `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-       VALUES (1, 1, 2, 'multiple_choice', 'Q1?', 'A', 'verified')`,
-    );
-    db.run(
-      `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-       VALUES (2, 2, 2, 'multiple_choice', 'Q2?', 'B', 'verified')`,
-    );
+    db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+       VALUES (1, 1, 2, 'multiple_choice', 'Q1?', 'A', 'verified')`).run();
+    db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+       VALUES (2, 2, 2, 'multiple_choice', 'Q2?', 'B', 'verified')`).run();
 
     // Recent quiz history (within last 24h)
-    db.run(
-      `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-       VALUES (1, 1, 'A', 0.9, datetime('now', '-2 hours'))`,
-    );
-    db.run(
-      `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-       VALUES (2, 2, 'B', 0.7, datetime('now', '-3 hours'))`,
-    );
+    db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+       VALUES (1, 1, 'A', 0.9, datetime('now', '-2 hours'))`).run();
+    db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+       VALUES (2, 2, 'B', 0.7, datetime('now', '-3 hours'))`).run();
 
     const digest = generateDigest(db);
 
@@ -194,18 +176,12 @@ describe("digest-generator", () => {
     const db = createTestDb();
     seedTopics(db);
 
-    db.run(
-      `INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
-       VALUES (1, 80, 'pending', 'system', 'High priority topic')`,
-    );
-    db.run(
-      `INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
-       VALUES (2, 60, 'pending', 'system', 'Needs attention')`,
-    );
-    db.run(
-      `INSERT INTO curriculum (topic_id, priority, status, suggested_by)
-       VALUES (3, 40, 'completed', 'system')`,
-    );
+    db.prepare(`INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
+       VALUES (1, 80, 'pending', 'system', 'High priority topic')`).run();
+    db.prepare(`INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
+       VALUES (2, 60, 'pending', 'system', 'Needs attention')`).run();
+    db.prepare(`INSERT INTO curriculum (topic_id, priority, status, suggested_by)
+       VALUES (3, 40, 'completed', 'system')`).run();
 
     const digest = generateDigest(db);
 
@@ -222,22 +198,16 @@ describe("digest-generator", () => {
     const db = createTestDb();
     seedTopics(db);
 
-    db.run(
-      `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-       VALUES (1, 1, 2, 'multiple_choice', 'Q1?', 'A', 'verified')`,
-    );
+    db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+       VALUES (1, 1, 2, 'multiple_choice', 'Q1?', 'A', 'verified')`).run();
 
     // Due now
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review)
-       VALUES (1, datetime('now', '-1 hour'))`,
-    );
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review)
+       VALUES (1, datetime('now', '-1 hour'))`).run();
 
     // Not yet due
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review)
-       VALUES (1, datetime('now', '+1 day'))`,
-    );
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review)
+       VALUES (1, datetime('now', '+1 day'))`).run();
 
     const digest = generateDigest(db);
     expect(digest.reviewsDue).toBe(1);

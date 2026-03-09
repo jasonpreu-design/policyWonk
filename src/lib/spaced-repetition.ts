@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 export interface SM2Result {
   intervalDays: number;
@@ -64,7 +64,7 @@ export function scoreToQuality(score: number): number {
 /**
  * Get reviews due now or before current time.
  */
-export function getDueReviews(db: Database, limit?: number): ReviewItem[] {
+export function getDueReviews(db: Database.Database, limit?: number): ReviewItem[] {
   const sql = `
     SELECT id, question_id, next_review, interval_days, ease_factor, repetitions
     FROM review_schedule
@@ -72,7 +72,7 @@ export function getDueReviews(db: Database, limit?: number): ReviewItem[] {
     ORDER BY next_review ASC
     ${limit ? `LIMIT ${limit}` : ""}
   `;
-  const rows = db.query(sql).all() as Array<{
+  const rows = db.prepare(sql).all() as Array<{
     id: number;
     question_id: number;
     next_review: string;
@@ -94,24 +94,21 @@ export function getDueReviews(db: Database, limit?: number): ReviewItem[] {
 /**
  * Schedule a new question for review (first time).
  */
-export function scheduleNewCard(db: Database, questionId: number): void {
-  db.run(
-    `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-     VALUES (?, datetime('now'), 1, 2.5, 0)`,
-    [questionId],
-  );
+export function scheduleNewCard(db: Database.Database, questionId: number): void {
+  db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+     VALUES (?, datetime('now'), 1, 2.5, 0)`).run(questionId);
 }
 
 /**
  * Record a review result and update the schedule.
  */
 export function recordReview(
-  db: Database,
+  db: Database.Database,
   questionId: number,
   score: number,
 ): SM2Result {
   const row = db
-    .query(
+    .prepare(
       `SELECT interval_days, ease_factor, repetitions
        FROM review_schedule
        WHERE question_id = ?`,
@@ -130,22 +127,19 @@ export function recordReview(
     row.interval_days,
   );
 
-  db.run(
-    `UPDATE review_schedule
+  db.prepare(`UPDATE review_schedule
      SET interval_days = ?,
          ease_factor = ?,
          repetitions = ?,
          next_review = date('now', '+' || ? || ' days'),
          updated_at = datetime('now')
-     WHERE question_id = ?`,
-    [
+     WHERE question_id = ?`).run(
       result.intervalDays,
       result.easeFactor,
       result.repetitions,
       result.intervalDays,
       questionId,
-    ],
-  );
+    );
 
   return result;
 }
@@ -153,9 +147,9 @@ export function recordReview(
 /**
  * Get count of reviews due today.
  */
-export function getDueReviewCount(db: Database): number {
+export function getDueReviewCount(db: Database.Database): number {
   const row = db
-    .query(
+    .prepare(
       `SELECT COUNT(*) as count FROM review_schedule WHERE next_review <= datetime('now')`,
     )
     .get() as { count: number };

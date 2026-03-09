@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import {
   getOverallStats,
   getStreak,
@@ -11,55 +11,39 @@ import {
   getStrongestTopics,
 } from "./progress";
 
-function setupDb(): Database {
+function setupDb(): Database.Database {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
   const schema = readFileSync(
-    join(dirname(import.meta.path), "schema.sql"),
+    join(import.meta.dirname ?? __dirname, "schema.sql"),
     "utf-8",
   );
   db.exec(schema);
   return db;
 }
 
-function seedTopics(db: Database): void {
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (1, 'Cybersecurity', 'Network Security')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (2, 'Cybersecurity', 'Encryption')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (3, 'Privacy', 'GDPR')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (4, 'Privacy', 'CCPA')",
-  );
-  db.run(
-    "INSERT INTO topics (id, domain, name) VALUES (5, 'AI Policy', 'AI Governance')",
-  );
+function seedTopics(db: Database.Database): void {
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (1, 'Cybersecurity', 'Network Security')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (2, 'Cybersecurity', 'Encryption')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (3, 'Privacy', 'GDPR')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (4, 'Privacy', 'CCPA')").run();
+  db.prepare("INSERT INTO topics (id, domain, name) VALUES (5, 'AI Policy', 'AI Governance')").run();
 }
 
-function seedQuizQuestion(db: Database, id: number, topicId: number): void {
-  db.run(
-    `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-     VALUES (?, ?, 1, 'multiple_choice', 'Test question?', 'Answer', 'verified')`,
-    [id, topicId],
-  );
+function seedQuizQuestion(db: Database.Database, id: number, topicId: number): void {
+  db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+     VALUES (?, ?, 1, 'multiple_choice', 'Test question?', 'Answer', 'verified')`).run(id, topicId);
 }
 
 function insertQuizHistory(
-  db: Database,
+  db: Database.Database,
   questionId: number,
   topicId: number,
   score: number,
   createdAt: string,
 ): void {
-  db.run(
-    `INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
-     VALUES (?, ?, 'test answer', ?, ?)`,
-    [questionId, topicId, score, createdAt],
-  );
+  db.prepare(`INSERT INTO quiz_history (question_id, topic_id, user_answer, score, created_at)
+     VALUES (?, ?, 'test answer', ?, ?)`).run(questionId, topicId, score, createdAt);
 }
 
 function today(): string {
@@ -71,7 +55,7 @@ function daysAgo(n: number): string {
 }
 
 describe("getOverallStats", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -102,22 +86,14 @@ describe("getOverallStats", () => {
     insertQuizHistory(db, 3, 3, 1.0, today() + " 12:00:00");
 
     // Competencies
-    db.run(
-      "INSERT INTO competencies (topic_id, tier, score) VALUES (1, 'fluency', 0.8)",
-    );
-    db.run(
-      "INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'mastery', 1.0)",
-    );
+    db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (1, 'fluency', 0.8)").run();
+    db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'mastery', 1.0)").run();
 
     // Review schedule with one due
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-       VALUES (1, datetime('now', '-1 hour'), 1, 2.5, 0)`,
-    );
-    db.run(
-      `INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
-       VALUES (2, datetime('now', '+7 days'), 7, 2.5, 2)`,
-    );
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+       VALUES (1, datetime('now', '-1 hour'), 1, 2.5, 0)`).run();
+    db.prepare(`INSERT INTO review_schedule (question_id, next_review, interval_days, ease_factor, repetitions)
+       VALUES (2, datetime('now', '+7 days'), 7, 2.5, 2)`).run();
 
     const stats = getOverallStats(db);
     expect(stats.totalQuestionsAnswered).toBe(3);
@@ -131,7 +107,7 @@ describe("getOverallStats", () => {
 });
 
 describe("getStreak", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -164,7 +140,7 @@ describe("getStreak", () => {
 });
 
 describe("getDomainProgress", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -200,7 +176,7 @@ describe("getDomainProgress", () => {
 });
 
 describe("getRecentActivity", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -217,11 +193,8 @@ describe("getRecentActivity", () => {
     insertQuizHistory(db, 2, 3, 1.0, daysAgo(1) + " 10:00:00");
 
     // An alert read today
-    db.run(
-      `INSERT INTO alerts (type, title, summary, confidence, read, created_at)
-       VALUES ('news', 'Test Alert', 'Summary', 'verified', 1, ?)`,
-      [today() + " 09:00:00"],
-    );
+    db.prepare(`INSERT INTO alerts (type, title, summary, confidence, read, created_at)
+       VALUES ('news', 'Test Alert', 'Summary', 'verified', 1, ?)`).run(today() + " 09:00:00");
 
     const activity = getRecentActivity(db, 7);
 
@@ -243,7 +216,7 @@ describe("getRecentActivity", () => {
 });
 
 describe("getWeakestTopics", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -285,7 +258,7 @@ describe("getWeakestTopics", () => {
 });
 
 describe("getStrongestTopics", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = setupDb();
@@ -302,9 +275,7 @@ describe("getStrongestTopics", () => {
     insertQuizHistory(db, 2, 2, 0.7, today() + " 10:00:00");
     insertQuizHistory(db, 3, 3, 1.0, today() + " 10:00:00");
 
-    db.run(
-      "INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'mastery', 1.0)",
-    );
+    db.prepare("INSERT INTO competencies (topic_id, tier, score) VALUES (3, 'mastery', 1.0)").run();
 
     const strong = getStrongestTopics(db, 2);
     expect(strong.length).toBe(2);

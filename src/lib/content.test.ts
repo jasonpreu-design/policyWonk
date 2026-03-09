@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import {
   saveContent,
   getContentForTopic,
@@ -14,15 +14,15 @@ import {
 import type { Citation } from "./confidence";
 
 describe("Content Data Layer", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = new Database(":memory:");
     db.exec("PRAGMA foreign_keys=ON");
-    const schema = readFileSync(join(dirname(import.meta.path), "schema.sql"), "utf-8");
+    const schema = readFileSync(join(import.meta.dirname ?? __dirname, "schema.sql"), "utf-8");
     db.exec(schema);
     // Insert a topic for foreign key references
-    db.run("INSERT INTO topics (domain, name) VALUES (?, ?)", ["Healthcare", "ACA"]);
+    db.prepare("INSERT INTO topics (domain, name) VALUES (?, ?)").run("Healthcare", "ACA");
   });
 
   afterEach(() => {
@@ -87,11 +87,8 @@ describe("Content Data Layer", () => {
 
   it("markStale marks old content", () => {
     // Insert with a past date by directly manipulating the row
-    db.run(
-      `INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence, generated_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-60 days'))`,
-      [1, "deep_dive", "Old Content", "# Old", "[]", "high"]
-    );
+    db.prepare(`INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence, generated_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-60 days'))`).run(1, "deep_dive", "Old Content", "# Old", "[]", "high");
     saveContent(db, 1, "summary", "Fresh Content", "# Fresh", [], "high");
 
     const count = markStale(db, 30);
@@ -106,11 +103,8 @@ describe("Content Data Layer", () => {
 
   it("getStaleContent returns only stale items", () => {
     saveContent(db, 1, "deep_dive", "Fresh", "# Fresh", [], "high");
-    db.run(
-      `INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence, stale)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [1, "summary", "Stale Item", "# Stale", "[]", "moderate"]
-    );
+    db.prepare(`INSERT INTO content_cache (topic_id, content_type, title, content, sources, confidence, stale)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`).run(1, "summary", "Stale Item", "# Stale", "[]", "moderate");
 
     const stale = getStaleContent(db);
     expect(stale).toHaveLength(1);

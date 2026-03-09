@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 import {
   initSearchIndex,
   indexContent,
@@ -10,13 +10,13 @@ import {
 } from "./search";
 
 describe("Full-Text Search", () => {
-  let db: Database;
+  let db: Database.Database;
 
   beforeEach(() => {
     db = new Database(":memory:");
     db.exec("PRAGMA foreign_keys=ON");
     const schema = readFileSync(
-      join(dirname(import.meta.path), "schema.sql"),
+      join(import.meta.dirname ?? __dirname, "schema.sql"),
       "utf-8"
     );
     db.exec(schema);
@@ -29,7 +29,7 @@ describe("Full-Text Search", () => {
 
   it("initSearchIndex creates the FTS5 table without error", () => {
     const tables = db
-      .query(
+      .prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='search_index'"
       )
       .all() as { name: string }[];
@@ -96,27 +96,19 @@ describe("Full-Text Search", () => {
 
   it("rebuildSearchIndex indexes all source tables", () => {
     // Insert a topic first (foreign key requirement)
-    db.run(
-      "INSERT INTO topics (id, domain, name) VALUES (1, 'Healthcare', 'ACA')"
-    );
+    db.prepare("INSERT INTO topics (id, domain, name) VALUES (1, 'Healthcare', 'ACA')").run();
 
     // Insert content_cache row
-    db.run(
-      `INSERT INTO content_cache (id, topic_id, content_type, title, content, confidence)
-       VALUES (1, 1, 'deep_dive', 'ACA Deep Dive', 'Deep analysis of the Affordable Care Act.', 'high')`
-    );
+    db.prepare(`INSERT INTO content_cache (id, topic_id, content_type, title, content, confidence)
+       VALUES (1, 1, 'deep_dive', 'ACA Deep Dive', 'Deep analysis of the Affordable Care Act.', 'high')`).run();
 
     // Insert alert row
-    db.run(
-      `INSERT INTO alerts (id, type, title, summary, confidence)
-       VALUES (1, 'bill', 'New Healthcare Bill', 'A bill to expand coverage.', 'verified')`
-    );
+    db.prepare(`INSERT INTO alerts (id, type, title, summary, confidence)
+       VALUES (1, 'bill', 'New Healthcare Bill', 'A bill to expand coverage.', 'verified')`).run();
 
     // Insert quiz question row
-    db.run(
-      `INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
-       VALUES (1, 1, 2, 'multiple_choice', 'What does ACA stand for?', 'Affordable Care Act', 'verified')`
-    );
+    db.prepare(`INSERT INTO quiz_questions (id, topic_id, difficulty, type, question, answer, confidence)
+       VALUES (1, 1, 2, 'multiple_choice', 'What does ACA stand for?', 'Affordable Care Act', 'verified')`).run();
 
     const count = rebuildSearchIndex(db);
     expect(count).toBe(3);

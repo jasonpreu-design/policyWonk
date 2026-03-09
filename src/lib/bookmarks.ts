@@ -1,4 +1,4 @@
-import type { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 export interface Bookmark {
   id: number;
@@ -30,14 +30,14 @@ function rowToBookmark(row: BookmarkRow): Bookmark {
 }
 
 export function addBookmark(
-  db: Database,
+  db: Database.Database,
   contentType: Bookmark["contentType"],
   referenceId: number | null,
   title: string,
   note?: string
 ): number {
   const result = db
-    .query(
+    .prepare(
       `INSERT INTO bookmarks (content_type, reference_id, title, note)
        VALUES (?, ?, ?, ?)`
     )
@@ -46,18 +46,18 @@ export function addBookmark(
   return Number(result.lastInsertRowid);
 }
 
-export function removeBookmark(db: Database, id: number): void {
-  db.query("DELETE FROM bookmarks WHERE id = ?").run(id);
+export function removeBookmark(db: Database.Database, id: number): void {
+  db.prepare("DELETE FROM bookmarks WHERE id = ?").run(id);
 }
 
 export function getBookmarks(
-  db: Database,
+  db: Database.Database,
   contentType?: Bookmark["contentType"],
   limit?: number
 ): Bookmark[] {
   if (contentType) {
     const rows = db
-      .query(
+      .prepare(
         `SELECT * FROM bookmarks WHERE content_type = ? ORDER BY created_at DESC LIMIT ?`
       )
       .all(contentType, limit ?? 100) as BookmarkRow[];
@@ -65,25 +65,25 @@ export function getBookmarks(
   }
 
   const rows = db
-    .query(`SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT ?`)
+    .prepare(`SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT ?`)
     .all(limit ?? 100) as BookmarkRow[];
   return rows.map(rowToBookmark);
 }
 
-export function getBookmarkCount(db: Database): number {
+export function getBookmarkCount(db: Database.Database): number {
   const row = db
-    .query("SELECT COUNT(*) as count FROM bookmarks")
+    .prepare("SELECT COUNT(*) as count FROM bookmarks")
     .get() as { count: number };
   return row.count;
 }
 
 export function isBookmarked(
-  db: Database,
+  db: Database.Database,
   contentType: Bookmark["contentType"],
   referenceId: number
 ): boolean {
   const row = db
-    .query(
+    .prepare(
       "SELECT id FROM bookmarks WHERE content_type = ? AND reference_id = ? LIMIT 1"
     )
     .get(contentType, referenceId) as { id: number } | null;

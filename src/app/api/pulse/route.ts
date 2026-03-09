@@ -25,13 +25,13 @@ export async function GET() {
 
   // Alerts: unread count + latest 3
   const unreadCount = (
-    db.query(`SELECT COUNT(*) as count FROM alerts WHERE read = 0`).get() as {
+    db.prepare(`SELECT COUNT(*) as count FROM alerts WHERE read = 0`).get() as {
       count: number;
     }
   ).count;
 
   const latestAlerts = db
-    .query(
+    .prepare(
       `SELECT id, title, type, created_at
        FROM alerts
        WHERE read = 0
@@ -43,7 +43,7 @@ export async function GET() {
   // Stats: questions today
   const questionsToday = (
     db
-      .query(
+      .prepare(
         `SELECT COUNT(*) as count FROM quiz_history WHERE date(created_at) = date('now')`,
       )
       .get() as { count: number }
@@ -56,7 +56,7 @@ export async function GET() {
   // Stats: competency tier advancements this week
   const competencyGains = (
     db
-      .query(
+      .prepare(
         `SELECT COUNT(*) as count FROM competencies
          WHERE updated_at >= datetime('now', '-7 days')
            AND tier != 'none'`,
@@ -66,7 +66,7 @@ export async function GET() {
 
   // Suggestion: top pending curriculum items by priority
   const pendingTopics = db
-    .query(
+    .prepare(
       `SELECT c.id, t.name, t.domain, c.priority
        FROM curriculum c
        JOIN topics t ON c.topic_id = t.id

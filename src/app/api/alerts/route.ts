@@ -56,11 +56,11 @@ export async function GET(request: NextRequest) {
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countRow = db
-    .query(`SELECT COUNT(*) as total FROM alerts ${where}`)
+    .prepare(`SELECT COUNT(*) as total FROM alerts ${where}`)
     .get(...params) as CountRow;
 
   const alerts = db
-    .query(
+    .prepare(
       `SELECT * FROM alerts ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset) as AlertRow[];
@@ -102,14 +102,14 @@ export async function POST(request: NextRequest) {
   }
 
   const result = db
-    .query(
+    .prepare(
       `INSERT INTO alerts (type, source_id, title, summary, domain, confidence, ks3_impact, source_url)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(type, sourceId ?? null, title, summary, domain ?? null, confidence, ks3Impact ?? null, sourceUrl ?? null);
 
   const alert = db
-    .query("SELECT * FROM alerts WHERE id = ?")
+    .prepare("SELECT * FROM alerts WHERE id = ?")
     .get(result.lastInsertRowid) as AlertRow;
 
   return NextResponse.json({ alert: formatAlert(alert) }, { status: 201 });
@@ -127,7 +127,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Verify alert exists
-  const existing = db.query("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow | null;
+  const existing = db.prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow | null;
   if (!existing) {
     return NextResponse.json({ error: "Alert not found" }, { status: 404 });
   }
@@ -147,19 +147,19 @@ export async function PATCH(request: NextRequest) {
 
   if (updates.length > 0) {
     params.push(id);
-    db.query(`UPDATE alerts SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+    db.prepare(`UPDATE alerts SET ${updates.join(", ")} WHERE id = ?`).run(...params);
   }
 
   // "Study This" flow: mark studied, find/create topic, create curriculum item
   if (studyThis) {
-    db.query("UPDATE alerts SET studied = 1, read = 1 WHERE id = ?").run(id);
+    db.prepare("UPDATE alerts SET studied = 1, read = 1 WHERE id = ?").run(id);
 
     let topicId: number | null = null;
 
     // Try to find an existing topic matching the alert's domain
     if (existing.domain) {
       const topic = db
-        .query("SELECT id FROM topics WHERE domain = ? AND parent_id IS NULL LIMIT 1")
+        .prepare("SELECT id FROM topics WHERE domain = ? AND parent_id IS NULL LIMIT 1")
         .get(existing.domain) as TopicRow | null;
       if (topic) {
         topicId = topic.id;
@@ -169,7 +169,7 @@ export async function PATCH(request: NextRequest) {
     // If no matching topic, use the first available topic
     if (!topicId) {
       const fallback = db
-        .query("SELECT id FROM topics WHERE parent_id IS NULL LIMIT 1")
+        .prepare("SELECT id FROM topics WHERE parent_id IS NULL LIMIT 1")
         .get() as TopicRow | null;
       if (fallback) {
         topicId = fallback.id;
@@ -179,24 +179,24 @@ export async function PATCH(request: NextRequest) {
     if (topicId) {
       // Check for existing curriculum item for this topic from an alert
       const existingCurriculum = db
-        .query(
+        .prepare(
           "SELECT id FROM curriculum WHERE topic_id = ? AND suggested_by = 'alert' AND status = 'pending' LIMIT 1"
         )
         .get(topicId) as { id: number } | null;
 
       if (!existingCurriculum) {
-        db.query(
+        db.prepare(
           `INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes)
            VALUES (?, 80, 'pending', 'alert', ?)`
         ).run(topicId, `From alert: ${existing.title}`);
       }
     }
 
-    const updated = db.query("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow;
+    const updated = db.prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow;
     return NextResponse.json({ alert: formatAlert(updated), topicId });
   }
 
-  const updated = db.query("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow;
+  const updated = db.prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow;
   return NextResponse.json({ alert: formatAlert(updated) });
 }
 

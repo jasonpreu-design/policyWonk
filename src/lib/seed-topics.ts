@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 const DOMAINS = [
   {
@@ -193,9 +193,9 @@ const DOMAINS = [
   },
 ];
 
-export function seedTopics(db: Database): { domains: number; subtopics: number } {
+export function seedTopics(db: Database.Database): { domains: number; subtopics: number } {
   // Check if already seeded
-  const count = db.query("SELECT COUNT(*) as count FROM topics").get() as { count: number };
+  const count = db.prepare("SELECT COUNT(*) as count FROM topics").get() as { count: number };
   if (count.count > 0) return { domains: 0, subtopics: 0 };
 
   let domainCount = 0;
@@ -212,7 +212,7 @@ export function seedTopics(db: Database): { domains: number; subtopics: number }
     for (let i = 0; i < DOMAINS.length; i++) {
       const d = DOMAINS[i];
       insertDomain.run(d.domain, d.name, d.description, i);
-      const domainId = db.query("SELECT last_insert_rowid() as id").get() as { id: number };
+      const domainId = db.prepare("SELECT last_insert_rowid() as id").get() as { id: number };
       domainCount++;
 
       for (let j = 0; j < d.subtopics.length; j++) {

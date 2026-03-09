@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type Database from "better-sqlite3";
 
 export interface OnboardingState {
   phase: "welcome" | "assessing" | "self_rating" | "results" | "complete";
@@ -17,9 +17,9 @@ const DEFAULT_STATE: OnboardingState = {
 /**
  * Get current onboarding state from app_state table.
  */
-export function getOnboardingState(db: Database): OnboardingState {
+export function getOnboardingState(db: Database.Database): OnboardingState {
   const row = db
-    .query("SELECT value FROM app_state WHERE key = 'onboarding_state'")
+    .prepare("SELECT value FROM app_state WHERE key = 'onboarding_state'")
     .get() as { value: string } | null;
 
   if (!row) {
@@ -33,26 +33,23 @@ export function getOnboardingState(db: Database): OnboardingState {
  * Save state to app_state table (key = "onboarding_state", value = JSON).
  */
 export function saveOnboardingState(
-  db: Database,
+  db: Database.Database,
   state: OnboardingState
 ): void {
-  db.run(
-    `INSERT INTO app_state (key, value, updated_at)
+  db.prepare(`INSERT INTO app_state (key, value, updated_at)
      VALUES ('onboarding_state', ?, datetime('now'))
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
-    JSON.stringify(state)
-  );
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`).run(JSON.stringify(state));
 }
 
 /**
  * Determine if onboarding is needed (no onboarding_results exist and state isn't 'complete').
  */
-export function needsOnboarding(db: Database): boolean {
+export function needsOnboarding(db: Database.Database): boolean {
   const state = getOnboardingState(db);
   if (state.phase === "complete") return false;
 
   const results = db
-    .query("SELECT COUNT(*) as count FROM onboarding_results")
+    .prepare("SELECT COUNT(*) as count FROM onboarding_results")
     .get() as { count: number };
 
   // If there are results and state is complete, no onboarding needed
@@ -65,10 +62,10 @@ export function needsOnboarding(db: Database): boolean {
  * Returns top-level topics (parent_id IS NULL) ordered by sort_order.
  */
 export function getAssessmentDomains(
-  db: Database
+  db: Database.Database
 ): { id: number; name: string; domain: string }[] {
   return db
-    .query(
+    .prepare(
       "SELECT id, name, domain FROM topics WHERE parent_id IS NULL ORDER BY sort_order"
     )
     .all() as { id: number; name: string; domain: string }[];
@@ -103,7 +100,7 @@ function levelToTier(
  *   - If at level 4 or scored moderately (0.5-0.7), stop this domain -> go to self_rating
  */
 export function advanceAfterAnswer(
-  db: Database,
+  db: Database.Database,
   state: OnboardingState,
   score: number
 ): OnboardingState {
@@ -128,12 +125,9 @@ export function advanceAfterAnswer(
           ? levelToTier(currentLevel - 1)
           : levelToTier(currentLevel);
 
-    db.run(
-      `INSERT INTO onboarding_results (topic_id, tier_reached)
-       VALUES (?, ?)`,
-      state.currentDomainId!,
-      tierReached
-    );
+    db.prepare(`INSERT INTO onboarding_results (topic_id, tier_reached)
+       VALUES (?, ?)`).run(state.currentDomainId!,
+      tierReached);
 
     newState = {
       ...state,
@@ -149,18 +143,15 @@ export function advanceAfterAnswer(
  * Advance after self-rating — move to next domain or results.
  */
 export function advanceAfterRating(
-  db: Database,
+  db: Database.Database,
   state: OnboardingState,
   rating: number // 1-5
 ): OnboardingState {
   // Update the onboarding_results row with the self_confidence rating
-  db.run(
-    `UPDATE onboarding_results SET self_confidence = ?
+  db.prepare(`UPDATE onboarding_results SET self_confidence = ?
      WHERE topic_id = ? AND self_confidence IS NULL
-     ORDER BY id DESC LIMIT 1`,
-    rating,
-    state.currentDomainId!
-  );
+     ORDER BY id DESC LIMIT 1`).run(rating,
+    state.currentDomainId!);
 
   const completed = [...state.domainsCompleted, state.currentDomainId!];
   const domains = getAssessmentDomains(db);
@@ -194,7 +185,7 @@ export function advanceAfterRating(
 /**
  * Start onboarding — set state to first domain at level 1.
  */
-export function startOnboarding(db: Database): OnboardingState {
+export function startOnboarding(db: Database.Database): OnboardingState {
   const domains = getAssessmentDomains(db);
 
   if (domains.length === 0) {
@@ -220,46 +211,37 @@ export function startOnboarding(db: Database): OnboardingState {
  * 3. Add curriculum entries based on competency level
  * 4. Set onboarding state to complete
  */
-export function completeOnboarding(db: Database): void {
+export function completeOnboarding(db: Database.Database): void {
   const results = db
-    .query("SELECT topic_id, tier_reached FROM onboarding_results")
+    .prepare("SELECT topic_id, tier_reached FROM onboarding_results")
     .all() as { topic_id: number; tier_reached: string }[];
 
   db.transaction(() => {
     for (const result of results) {
       // Check if competency already exists for this topic
       const existing = db
-        .query("SELECT id FROM competencies WHERE topic_id = ?")
+        .prepare("SELECT id FROM competencies WHERE topic_id = ?")
         .get(result.topic_id) as { id: number } | null;
 
       if (existing) {
-        db.run(
-          `UPDATE competencies SET tier = ?, score = ?, last_assessed = datetime('now'), updated_at = datetime('now')
-           WHERE topic_id = ?`,
-          result.tier_reached,
+        db.prepare(`UPDATE competencies SET tier = ?, score = ?, last_assessed = datetime('now'), updated_at = datetime('now')
+           WHERE topic_id = ?`).run(result.tier_reached,
           tierToScore(result.tier_reached),
-          result.topic_id
-        );
+          result.topic_id);
       } else {
-        db.run(
-          `INSERT INTO competencies (topic_id, tier, score, last_assessed, updated_at)
-           VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
-          result.topic_id,
+        db.prepare(`INSERT INTO competencies (topic_id, tier, score, last_assessed, updated_at)
+           VALUES (?, ?, ?, datetime('now'), datetime('now'))`).run(result.topic_id,
           result.tier_reached,
-          tierToScore(result.tier_reached)
-        );
+          tierToScore(result.tier_reached));
       }
 
       // Determine curriculum priority based on tier
       const priority = tierToPriority(result.tier_reached);
 
-      db.run(
-        `INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes, created_at, updated_at)
-         VALUES (?, ?, 'pending', 'onboarding', ?, datetime('now'), datetime('now'))`,
-        result.topic_id,
+      db.prepare(`INSERT INTO curriculum (topic_id, priority, status, suggested_by, notes, created_at, updated_at)
+         VALUES (?, ?, 'pending', 'onboarding', ?, datetime('now'), datetime('now'))`).run(result.topic_id,
         priority,
-        `Onboarding assessment: ${result.tier_reached}`
-      );
+        `Onboarding assessment: ${result.tier_reached}`);
     }
 
     // Set state to complete
