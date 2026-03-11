@@ -62,23 +62,16 @@ export async function GET(
     });
   }
 
-  // No cached content — generate synchronously
-  try {
-    const deepDive = await generateDeepDive(
-      topic.name,
-      topic.description ?? "",
-      topic.domain
-    );
-
-    // Determine overall confidence as the lowest section confidence
+  // No cached content — kick off background generation and return immediately
+  generateDeepDive(
+    topic.name,
+    topic.description ?? "",
+    topic.domain
+  ).then((deepDive) => {
     const overallConfidence = lowestConfidence(
       deepDive.sections.map((s) => s.confidence)
     );
-
-    // Collect all sources
     const allSources = deepDive.sections.flatMap((s) => s.sources);
-
-    // Save to content_cache
     saveContent(
       db,
       topicId,
@@ -88,35 +81,21 @@ export async function GET(
       allSources,
       overallConfidence
     );
+    console.log(`[study] Deep dive generated for "${topic.name}"`);
+  }).catch((err) => {
+    console.error(`[study] Deep dive generation failed for "${topic.name}":`, err);
+  });
 
-    return NextResponse.json({
-      topic: {
-        id: topic.id,
-        name: topic.name,
-        domain: topic.domain,
-        description: topic.description ?? "",
-      },
-      content: deepDive,
-      generating: false,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to generate content";
-    return NextResponse.json(
-      {
-        topic: {
-          id: topic.id,
-          name: topic.name,
-          domain: topic.domain,
-          description: topic.description ?? "",
-        },
-        content: null,
-        generating: false,
-        error: message,
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    topic: {
+      id: topic.id,
+      name: topic.name,
+      domain: topic.domain,
+      description: topic.description ?? "",
+    },
+    content: null,
+    generating: true,
+  });
 }
 
 export async function POST(

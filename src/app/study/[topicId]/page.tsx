@@ -22,9 +22,13 @@ export default function StudyTopicPage({
   const [topic, setTopic] = useState<TopicInfo | null>(null);
   const [content, setContent] = useState<DeepDiveType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
     async function fetchContent() {
       try {
         const res = await fetch(`/api/study/${topicId}`);
@@ -34,15 +38,35 @@ export default function StudyTopicPage({
           throw new Error(data.error ?? "Failed to load topic");
         }
 
+        if (cancelled) return;
+
         setTopic(data.topic);
-        setContent(data.content);
+
+        if (data.content) {
+          setContent(data.content);
+          setGenerating(false);
+          setLoading(false);
+        } else if (data.generating) {
+          setGenerating(true);
+          setLoading(false);
+          // Poll every 10 seconds until content is ready
+          pollTimer = setTimeout(fetchContent, 10_000);
+        } else {
+          setLoading(false);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load content");
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load content");
+          setLoading(false);
+        }
       }
     }
     fetchContent();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }, [topicId]);
 
   if (loading) {
@@ -169,10 +193,20 @@ export default function StudyTopicPage({
               </p>
             )}
           </>
+        ) : generating ? (
+          <div className="rounded-xl border border-[#1a2744]/8 bg-white p-12 text-center">
+            <div className="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-[#1a2744]/20 border-t-[#e85d4a]" />
+            <p className="mt-4 text-[#1a2744]/70 font-medium">
+              Preparing your briefing...
+            </p>
+            <p className="mt-2 text-sm text-[#1a2744]/40">
+              This page will update automatically when ready. Deep dives typically take 1-2 minutes.
+            </p>
+          </div>
         ) : (
           <div className="rounded-xl border border-[#1a2744]/8 bg-white p-12 text-center">
             <p className="text-[#1a2744]/50">
-              No briefing available for this topic.
+              No briefing available for this topic yet. Check back soon or start the background engine.
             </p>
           </div>
         )}
